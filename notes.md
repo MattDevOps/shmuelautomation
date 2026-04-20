@@ -180,9 +180,11 @@ Total $6,800. No deposit per user's decision. Slightly front-loaded into Phase 1
 | OpenAI API | Chatbot, summaries, translation | $30-150 |
 | WhatsApp Business API | Legit 1-on-1 chatbot | $5-40 |
 | Twilio | Call recording + transcription (optional) | $20-60 |
-| Hosting | Backend + database | $15-40 |
+| Fly.io | Backend hosting (FastAPI) | $5-25 |
+| Supabase | Postgres DB | $0-25 |
+| Upstash (Phase 2+) | Redis for scheduled posting queue | $0-10 |
 | Email (Resend/SendGrid) | Newsletter | $0-30 |
-| Cloud storage | Property photos | $0-15 |
+| Cloud storage | Property photos (Drive/Dropbox — his existing) | $0-15 |
 
 **Realistic totals**:
 - Month 1-3 (light use): **$50-100/mo**
@@ -227,17 +229,21 @@ Safe starting budget to tell him: **~$150/mo**, grows with usage.
 
 ---
 
-## Tech stack (working assumption)
+## Tech stack (decided 2026-04-20)
 
-- **Backend**: Python + FastAPI
-- **DB**: PostgreSQL
-- **Queue/scheduler**: Redis + cron workers (or similar)
+- **Backend**: Python + FastAPI (uv-managed, pytest)
+- **DB**: Postgres via **Supabase** (hosted — no local Docker). Treat as plain Postgres; no lock-in to Supabase-specific features (Auth, RLS, etc.) unless a real need shows up.
+- **Backend hosting**: **Fly.io** (user has used it before, prefers it). Dockerfile managed by `fly launch`; no local Docker needed for dev.
+- **Queue/scheduler** (Phase 2+): **Upstash** Redis (hosted) + cron workers on Fly. Not needed in Phase 1.
+- **Admin dashboard**: separate React SPA — Vite + TypeScript + Vitest (unit) + Playwright (E2E)
 - **AI**: OpenAI API (GPT + Whisper)
-- **Storage**: AWS S3 or Google Drive
+- **Storage**: Google Drive / Dropbox (per Shmuel's ask — he wants to see folders directly)
 - **Email**: Resend (clean API, generous free tier)
 - **Calls**: Twilio (if he wants recording)
 - **WhatsApp**: Official Business API via Meta
-- **Frontend**: Keep WordPress for now; admin dashboard either WP plugin or separate React app (TBD based on UX needs)
+- **Public site**: WordPress at jerusalem.com stays (SEO), pulls listings from the FastAPI backend via API
+
+**Principle**: avoid Docker for local dev unless genuinely necessary. Prefer hosted/managed infra over anything we'd otherwise run ourselves. Pick the best tool per job — this is the default, not a hard rule.
 
 ---
 

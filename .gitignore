@@ -1,0 +1,45 @@
+# env
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# node
+node_modules/
+.pnpm-store/
+
+# vite / build output
+admin/dist/
+admin/build/
+
+# test / coverage
+coverage/
+playwright-report/
+test-results/
+.playwright/
+
+# editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# logs
+*.log
+npm-debug.log*
+
+# local databases
+*.sqlite
+*.sqlite3
+
+# fly.io
+.fly/
