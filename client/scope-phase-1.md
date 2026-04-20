@@ -1,6 +1,5 @@
 # Phase 1 Scope — Foundation
 
-**Duration**: 4-6 weeks
 **Price**: $3,000 (due at phase completion)
 **Status**: draft — sign off before work begins
 

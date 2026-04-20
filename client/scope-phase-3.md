@@ -1,6 +1,5 @@
 # Phase 3 Scope — AI & Client Layer
 
-**Duration**: 4-6 weeks
 **Price**: $1,800 (due at phase completion)
 **Prerequisite**: Phase 2 complete and signed off
 **Status**: draft — revisit before Phase 3 begins (scope may refine based on Phase 1 + 2 learnings)

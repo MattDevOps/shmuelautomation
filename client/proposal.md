@@ -8,7 +8,7 @@ Because of that, I want to be upfront about three things before we start:
 
 1. **Some of what you want violates WhatsApp and Facebook terms of service.** I can build workarounds, but if I fully automate group posting and WhatsApp status, your business number *will* eventually get banned — not "might," *will*. I'll propose a safer "one-tap share" pattern instead that keeps you fast without the ban risk.
 2. **Yad2 actively blocks automated imports.** We can build it, but expect it to break periodically and need fixes. Manual upload will always be the reliable path.
-3. **This is a 4-6 month project at full scope.** I'll break it into phases so you see value early and can stop/pivot at any point.
+3. **This is a substantial project at full scope.** I'll break it into phases so you see value early and can stop/pivot at any point.
 
 ---
 
@@ -30,13 +30,13 @@ Keep your existing **jerusalem.com** WordPress site as the public face — it ha
 
 **Why hybrid and not rebuild from scratch?**
 - Keeps your SEO and domain authority
-- Ships faster — you see results in weeks, not months
+- Ships faster — you see results quickly
 - The valuable part (database, automation, AI) is built clean from day one
 - If WordPress ever becomes a bottleneck, we swap the frontend later — the backend stays
 
 ---
 
-## Phase 1 — Foundation (4-6 weeks)
+## Phase 1 — Foundation
 
 **Goal**: Every property in one clean database, publishing manually but quickly. Stop losing data.
 
@@ -58,7 +58,7 @@ Keep your existing **jerusalem.com** WordPress site as the public face — it ha
 
 ---
 
-## Phase 2 — Publishing & Scheduling (3-4 weeks)
+## Phase 2 — Publishing & Scheduling
 
 **Goal**: Cut your daily posting time from hours to minutes.
 
@@ -73,7 +73,7 @@ Fully automated WhatsApp/Facebook group posting would save you ~30 seconds per p
 
 ---
 
-## Phase 3 — AI & Client Layer (4-6 weeks)
+## Phase 3 — AI & Client Layer
 
 **Goal**: The features that make you look 10x more professional than other brokers.
 

@@ -1,6 +1,6 @@
 # Shmuel Classic Jerusalem Realty — Project Notes
 
-Internal working notes. Client-facing proposal lives in `proposal.md`.
+Internal working notes. Everything in `client/` is what Shmuel sees.
 
 ---
 

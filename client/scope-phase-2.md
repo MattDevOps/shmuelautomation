@@ -1,6 +1,5 @@
 # Phase 2 Scope — Publishing & Scheduling
 
-**Duration**: 3-4 weeks
 **Price**: $2,000 (due at phase completion)
 **Prerequisite**: Phase 1 complete and signed off
 **Status**: draft — revisit before Phase 2 begins (scope may refine based on Phase 1 learnings)
