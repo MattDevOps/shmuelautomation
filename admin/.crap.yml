@@ -1,0 +1,10 @@
+language: typescript
+crap_threshold: 30
+complexity_threshold: 10
+source_dirs:
+  - src
+test_command: npx vitest run
+coverage_command: npx vitest run --coverage --coverage.reporter=json
+coverage_report: coverage/coverage-final.json
+mutation_tool: stryker
+quality_command: npx eslint .
