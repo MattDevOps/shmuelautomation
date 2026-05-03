@@ -5,6 +5,25 @@ Newest at the top. Each section is self-contained — no cross-references needed
 
 ---
 
+## Phase 2 head — posting queue + one-tap share — 2026-05-03
+
+Hey Shmuel — the daily-posting workflow is now ready. This is the part that should save you the most time:
+
+**Every property is scheduled automatically.** When you add a new listing, it gets a posting slot in the queue right away — at the next 8 AM or 8 PM. New listings jump to the front of the line.
+
+**Friday evening / Saturday is off.** The system won't schedule anything from Friday afternoon until Saturday night, so you don't need to remember to pause it.
+
+**Tap "Compose & share" when a slot is due.** The post text is pre-written for that specific property — type, neighbourhood, price, rooms, address, your description — in either English or Hebrew (one tap to switch). You get three buttons:
+- **Copy text** — paste it anywhere.
+- **Open WhatsApp** — opens WhatsApp with the post text already filled in. You pick the group / status, hit send.
+- **Mark as posted** — the slot rolls forward to the next available time automatically.
+
+**Three minutes per slot, instead of fifteen.** You're never typing the same listing description twice — you're just deciding *which group* and tapping send.
+
+**What's still coming next**: configurable group lists (so the system remembers which groups are for rentals vs sales) and Janglo posting. Until then, you pick the group manually each time — still much faster than today.
+
+---
+
 ## Phase 1 ready — 2026-05-03
 
 Hi Shmuel — your new system is up and running. Here's what you can already do with it:
