@@ -42,7 +42,7 @@ One clean place for every property. Nothing gets lost. Everything ready to autom
 - Columns: all property fields including owner phone, broker fee status, notes
 
 ### WordPress integration
-- Your existing site (jerusalem.com) pulls live from the new database
+- Your existing site (classicjerusalem.com) pulls live from the new database
 - Visitors see up-to-date listings without you touching WordPress
 - Listings on site auto-update when you change something in the dashboard
 

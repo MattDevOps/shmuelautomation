@@ -1,111 +1,154 @@
+@import url('https://api.fontshare.com/v2/css?f[]=sentient@400,500,700,400i&f[]=switzer@300,400,500,600,700&display=swap');
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  /* Spacing — 4pt scale, semantic names */
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  --space-4xl: 96px;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* Type — Sentient (display serif) + Switzer (body sans), with Hebrew fallbacks */
+  --font-display: 'Sentient', 'Frank Ruhl Libre', Georgia, 'Times New Roman', serif;
+  --font-body: 'Switzer', 'Heebo', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
+  /* Type scale (rem) */
+  --t-xs: 0.75rem;
+  --t-sm: 0.875rem;
+  --t-base: 1rem;
+  --t-md: 1.125rem;
+  --t-lg: 1.25rem;
+  --t-xl: 1.5rem;
+  --t-2xl: 1.875rem;
+  --t-3xl: 2.5rem;
+
+  /* Colour — Jerusalem-stone palette (light, primary) */
+  --paper: oklch(0.985 0.005 70);
+  --paper-deep: oklch(0.96 0.008 70);
+  --paper-sunk: oklch(0.93 0.008 70);
+  --ink: oklch(0.22 0.012 60);
+  --ink-soft: oklch(0.46 0.01 60);
+  --ink-faint: oklch(0.62 0.008 60);
+  --edge: oklch(0.90 0.008 70);
+  --edge-strong: oklch(0.82 0.008 70);
+  --clay: oklch(0.55 0.13 35);
+  --clay-deep: oklch(0.48 0.13 35);
+  --clay-soft: oklch(0.92 0.04 35);
+  --alert: oklch(0.50 0.15 27);
+  --success: oklch(0.55 0.10 145);
+
+  /* Foundations */
+  font: 16px/1.55 var(--font-body);
+  color: var(--ink);
+  background: var(--paper);
   color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  font-feature-settings: 'ss01', 'ss02';
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+    --paper: oklch(0.18 0.01 60);
+    --paper-deep: oklch(0.22 0.01 60);
+    --paper-sunk: oklch(0.26 0.01 60);
+    --ink: oklch(0.92 0.008 70);
+    --ink-soft: oklch(0.68 0.01 60);
+    --ink-faint: oklch(0.50 0.01 60);
+    --edge: oklch(0.30 0.01 60);
+    --edge-strong: oklch(0.40 0.012 60);
+    --clay: oklch(0.68 0.14 40);
+    --clay-deep: oklch(0.62 0.13 38);
+    --clay-soft: oklch(0.32 0.06 40);
+    --alert: oklch(0.65 0.16 27);
+    --success: oklch(0.68 0.10 145);
   }
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+* {
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  background: var(--paper);
+}
+
+#root {
+  min-height: 100svh;
 }
 
 h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
 h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
+  font-size: var(--t-2xl);
+  line-height: 1.2;
 }
+
 h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
+  font-size: var(--t-xl);
+  line-height: 1.3;
 }
+
+h3 {
+  font-size: var(--t-lg);
+  line-height: 1.35;
+}
+
 p {
   margin: 0;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+a {
+  color: var(--clay);
+  text-underline-offset: 0.2em;
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+a:hover {
+  color: var(--clay-deep);
+}
+
+button {
+  font: inherit;
+}
+
+/* Tabular numerals where they belong */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Visually hidden but accessible to AT */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -3,8 +3,8 @@ crap_threshold: 30
 complexity_threshold: 10
 source_dirs:
   - src
-test_command: pytest
-coverage_command: pytest --cov --cov-report=json:coverage.json
+test_command: uv run pytest
+coverage_command: uv run pytest --cov --cov-report=json:coverage.json
 coverage_report: coverage.json
 mutation_tool: mutmut
-quality_command: ruff check .
+quality_command: uv run ruff check .

@@ -1,28 +1,37 @@
-import { useEffect, useState } from 'react'
+import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
+import ImportYad2Page from './pages/ImportYad2Page'
+import PropertiesPage from './pages/PropertiesPage'
+import PropertyEditPage from './pages/PropertyEditPage'
+import SettingsPage from './pages/SettingsPage'
 import './App.css'
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
-
-type HealthStatus = 'unknown' | 'ok' | 'unreachable'
-
-function App() {
-  const [status, setStatus] = useState<HealthStatus>('unknown')
-
-  useEffect(() => {
-    fetch(`${API_URL}/health`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
-      .then((data: { status: string }) => setStatus(data.status === 'ok' ? 'ok' : 'unreachable'))
-      .catch(() => setStatus('unreachable'))
-  }, [])
-
+export default function App() {
   return (
-    <main>
-      <h1>Classic Jerusalem Realty — Admin</h1>
-      <p>
-        Backend status: <strong data-testid="health-status">{status}</strong>
-      </p>
-    </main>
+    <BrowserRouter>
+      <header className="site-header">
+        <Link to="/" className="brand">
+          <span className="brand-mark" aria-hidden="true">
+            ◆
+          </span>
+          Classic Jerusalem Realty
+        </Link>
+        <nav className="site-nav" aria-label="Primary">
+          <NavLink to="/" end>
+            Properties
+          </NavLink>
+          <NavLink to="/import">Import from Yad2</NavLink>
+          <NavLink to="/settings">Settings</NavLink>
+        </nav>
+      </header>
+      <main>
+        <Routes>
+          <Route path="/" element={<PropertiesPage />} />
+          <Route path="/new" element={<PropertyEditPage />} />
+          <Route path="/import" element={<ImportYad2Page />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/:id" element={<PropertyEditPage />} />
+        </Routes>
+      </main>
+    </BrowserRouter>
   )
 }
-
-export default App

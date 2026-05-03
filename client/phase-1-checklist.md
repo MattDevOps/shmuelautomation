@@ -52,7 +52,7 @@ Plain-English checklist for both of us to track Phase 1. Tick items off as we go
 
 ## WordPress integration
 
-- [ ] Your existing site (jerusalem.com) starts pulling listings from the new database
+- [ ] Your existing site (classicjerusalem.com) starts pulling listings from the new database
 - [ ] Visitors see up-to-date listings the moment you add or edit something
 - [ ] Migrate every property from your spreadsheets into the new database (nothing lost)
 

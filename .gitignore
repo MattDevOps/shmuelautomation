@@ -27,9 +27,19 @@ admin/build/
 
 # test / coverage
 coverage/
+coverage.json
+.coverage
+.crap-mutation.log
+.mutmut-cache
 playwright-report/
 test-results/
 .playwright/
+.playwright-mcp/
+
+# transient design-verification screenshots — regenerate via the dev servers
+admin-*.png
+design-*.png
+*.screenshot.png
 
 # editors / OS
 .vscode/

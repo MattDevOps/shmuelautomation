@@ -14,7 +14,7 @@ Because of that, I want to be upfront about three things before we start:
 
 ## Recommended architecture (plain version)
 
-Keep your existing **jerusalem.com** WordPress site as the public face — it has SEO value and works fine for visitors. Behind it, I'll build a separate automation system that becomes the real brain of your business.
+Keep your existing **classicjerusalem.com** WordPress site as the public face — it has SEO value and works fine for visitors. Behind it, I'll build a separate automation system that becomes the real brain of your business.
 
 ```
 [WordPress site] ← pulls listings from ← [Database]

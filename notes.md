@@ -241,7 +241,7 @@ Safe starting budget to tell him: **~$150/mo**, grows with usage.
 - **Email**: Resend (clean API, generous free tier)
 - **Calls**: Twilio (if he wants recording)
 - **WhatsApp**: Official Business API via Meta
-- **Public site**: WordPress at jerusalem.com stays (SEO), pulls listings from the FastAPI backend via API
+- **Public site**: WordPress at classicjerusalem.com stays (SEO), pulls listings from the FastAPI backend via API
 
 **Principle**: avoid Docker for local dev unless genuinely necessary. Prefer hosted/managed infra over anything we'd otherwise run ourselves. Pick the best tool per job — this is the default, not a hard rule.
 
