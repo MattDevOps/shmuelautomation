@@ -1,0 +1,4 @@
+# Cloudflare Pages SPA fallback.
+# Any URL that isn't a built static asset (JS bundle, CSS, etc.) serves
+# index.html so react-router-dom can resolve the route client-side.
+/*    /index.html   200

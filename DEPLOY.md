@@ -89,15 +89,20 @@ It prints CNAME records to add. Add them in the Cloudflare DNS for `classicjerus
 
 ## 2. Admin SPA → Cloudflare Pages
 
-1. <https://dash.cloudflare.com/?to=/:account/pages> → **Connect to Git** → select the repo.
-2. Build config:
+The repo already ships `admin/public/_redirects` (SPA fallback so client-side routes don't 404) and `admin/public/_headers` (security headers + static-asset caching). Both end up in `dist/` on every build automatically.
+
+1. <https://dash.cloudflare.com/?to=/:account/pages> → **Create application → Pages → Connect to Git** → select `MattDevOps/shmuelautomation`.
+2. **Set up builds and deployments**:
    - **Production branch**: `main`
+   - **Framework preset**: `Vite`
    - **Build command**: `npm run build`
    - **Build output directory**: `dist`
-   - **Root directory**: `admin`
-   - **Environment variable**: `VITE_API_URL=https://api.classicjerusalem.com`
-3. Save → first build runs.
-4. Custom domain: Pages → project → Custom domains → `admin.classicjerusalem.com`. Cloudflare adds the DNS itself if the zone is managed there.
+   - **Root directory (advanced)**: `admin`
+   - **Environment variables (production)**: `VITE_API_URL=https://api.classicjerusalem.com`
+3. **Save and Deploy** — first build runs (~30 sec).
+4. **Custom domain**: project → Custom domains → **Set up a custom domain** → `admin.classicjerusalem.com`. If the DNS zone is on Cloudflare, the CNAME is added automatically; otherwise it prints the record to add at the registrar.
+
+Subsequent pushes to `main` auto-deploy; PRs get preview URLs.
 
 ---
 
