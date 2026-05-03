@@ -1,5 +1,6 @@
 import { API_URL, request } from './client'
 import type {
+  ContactMatch,
   Property,
   PropertyCreate,
   PropertyListFilters,
@@ -55,4 +56,12 @@ export function importFromYad2(url: string): Promise<Yad2ImportPreview> {
     method: 'POST',
     body: JSON.stringify({ url }),
   })
+}
+
+export function listMatchingContacts(
+  propertyId: string,
+): Promise<ContactMatch[]> {
+  return request<ContactMatch[]>(
+    `/properties/${propertyId}/matching-contacts`,
+  )
 }

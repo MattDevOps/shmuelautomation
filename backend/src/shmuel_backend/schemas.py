@@ -175,6 +175,23 @@ class ContactRead(ContactBase):
     updated_at: datetime
 
 
+class ContactMatch(BaseModel):
+    """Contact matched against a property's type/neighborhood.
+
+    `match_score` is 2 when both audience-intent and neighborhood match,
+    1 when just one. Frontend orders by score desc and shows reasons so
+    Shmuel can see *why* a contact came up.
+    """
+
+    id: uuid.UUID
+    name: str
+    phone: str | None = None
+    email: str | None = None
+    segments: list[str]
+    match_score: int
+    match_reasons: list[str]
+
+
 class GroupBase(BaseModel):
     platform: GroupPlatform
     audience: GroupAudience = GroupAudience.BOTH

@@ -1019,6 +1019,82 @@ label.field > .label-text,
   color: var(--clay);
 }
 
+/* ───── Matching contacts panel on the property edit page ──────── */
+
+.matching-contacts {
+  margin-top: var(--space-2xl);
+  padding-top: var(--space-xl);
+  border-top: 1px solid var(--edge);
+}
+
+.matching-contacts > h2 {
+  margin-bottom: var(--space-2xs);
+}
+
+.match-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-md) 0 0;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--edge);
+}
+
+.match-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--edge);
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.match-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.match-name {
+  font-weight: 500;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.match-name:hover {
+  color: var(--clay);
+}
+
+.match-reasons {
+  font-size: var(--t-xs);
+  color: var(--ink-soft);
+}
+
+.match-reasons em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--paper-deep);
+  padding: 0 var(--space-2xs);
+  border-radius: 3px;
+}
+
+.match-row-actions {
+  display: flex;
+  gap: var(--space-md);
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.match-row-actions a {
+  color: var(--ink-soft);
+}
+
+.match-row-actions a:hover {
+  color: var(--clay);
+}
+
 /* ───── /system page status cards ──────────────────────────────── */
 
 .system-grid {

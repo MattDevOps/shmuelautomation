@@ -11,9 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from shmuel_backend.db import get_session
 from shmuel_backend.enums import PropertyStatus, PropertyType
 from shmuel_backend.excel import properties_to_xlsx
-from shmuel_backend.models import Property
+from shmuel_backend.models import Contact, Property
 from shmuel_backend.queue_routes import cancel_pending_for, enqueue_property
 from shmuel_backend.schemas import (
+    ContactMatch,
     PropertyCreate,
     PropertyRead,
     PropertyUpdate,
@@ -155,3 +156,56 @@ async def delete_property(property_id: uuid.UUID, session: SessionDep) -> Respon
     await session.delete(prop)
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/{property_id}/matching-contacts", response_model=list[ContactMatch]
+)
+async def matching_contacts(
+    property_id: uuid.UUID, session: SessionDep
+) -> list[ContactMatch]:
+    """Surface contacts likely interested in this property.
+
+    Match logic (case-insensitive on segment values):
+    - audience-intent: 'buyer' for sale properties, 'renter' for rentals
+    - neighborhood: any segment matching the property's neighborhood
+
+    A contact scores 2 if they match both, 1 if just one. Sort by score
+    desc, then name asc. Returns top 20 — Shmuel's brain is the limit
+    on how many he can actually reach out to.
+    """
+    prop = await session.get(Property, property_id)
+    if prop is None:
+        raise HTTPException(status_code=404, detail="property not found")
+
+    audience = "buyer" if prop.type == PropertyType.SALE else "renter"
+    neighborhood = (prop.neighborhood or "").strip().lower()
+
+    rows = (await session.execute(select(Contact))).scalars().all()
+    matches: list[ContactMatch] = []
+    for c in rows:
+        segs = [s.lower() for s in (c.segments or []) if isinstance(s, str)]
+        score = 0
+        reasons: list[str] = []
+        if audience in segs:
+            score += 1
+            reasons.append(audience)
+        if neighborhood and neighborhood in segs:
+            score += 1
+            reasons.append(prop.neighborhood or neighborhood)
+        if score == 0:
+            continue
+        matches.append(
+            ContactMatch(
+                id=c.id,
+                name=c.name,
+                phone=c.phone,
+                email=c.email,
+                segments=list(c.segments or []),
+                match_score=score,
+                match_reasons=reasons,
+            )
+        )
+
+    matches.sort(key=lambda m: (-m.match_score, m.name.lower()))
+    return matches[:20]

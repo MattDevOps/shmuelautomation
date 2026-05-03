@@ -6,6 +6,7 @@ import {
   updateProperty,
 } from '../api/properties'
 import { EMPTY_PROPERTY, type PropertyCreate } from '../api/types'
+import MatchingContacts from '../components/MatchingContacts'
 import PhotoSection from '../components/PhotoSection'
 import PropertyForm from '../components/PropertyForm'
 import ShareModal from '../components/ShareModal'
@@ -105,6 +106,7 @@ export default function PropertyEditPage() {
         onSubmit={save}
         onCancel={() => navigate('/')}
       />
+      {!isCreate && id && <MatchingContacts propertyId={id} />}
       {!isCreate && id && <PhotoSection propertyId={id} />}
       {sharing && id && (
         <ShareModal

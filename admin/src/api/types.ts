@@ -161,6 +161,16 @@ export interface CloudConnectionStatus {
   root_folder_name: string | null
 }
 
+export interface ContactMatch {
+  id: string
+  name: string
+  phone: string | null
+  email: string | null
+  segments: string[]
+  match_score: number
+  match_reasons: string[]
+}
+
 export interface SystemStatus {
   environment: string
   db_ok: boolean
