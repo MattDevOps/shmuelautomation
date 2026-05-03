@@ -11,6 +11,33 @@ The Google Cloud project ID below comes from the existing OAuth setup. Replace `
 
 ---
 
+## Quick path: one script for §1.1 + §1.3 + §1.4 + §1.5 + §1.6
+
+If you want to skip the step-by-step and just bootstrap the GCP side
+in one shot, run:
+
+```bash
+# Provision Supabase first (web UI — see §1.2 below) and copy the
+# pooler connection string. That's the only manual prereq.
+
+export PROJECT_ID="classic-jerusalem-realty-XXXXX"
+export DATABASE_URL="postgresql+asyncpg://...supabase.../postgres"
+export GITHUB_REPO="MattDevOps/shmuelautomation"
+
+bash deploy/bootstrap.sh
+```
+
+The script auto-loads `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
+and `ENCRYPTION_KEY` from `backend/.env` if present (and generates a fresh
+Fernet key if `ENCRYPTION_KEY` is empty). It's idempotent — safe to re-run
+if a step fails partway through. At the end it prints the GitHub
+secrets/variables to paste at <https://github.com/MattDevOps/shmuelautomation/settings/secrets/actions>.
+
+The remaining browser-only steps (Cloudflare Pages, OAuth redirect URI,
+Sentry, custom-domain DNS records) are still manual and documented below.
+
+---
+
 ## 1. Backend → Cloud Run
 
 ### 1.1 Enable required APIs (one-time)
