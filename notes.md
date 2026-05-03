@@ -180,11 +180,12 @@ Total $6,800. No deposit per user's decision. Slightly front-loaded into Phase 1
 | OpenAI API | Chatbot, summaries, translation | $30-150 |
 | WhatsApp Business API | Legit 1-on-1 chatbot | $5-40 |
 | Twilio | Call recording + transcription (optional) | $20-60 |
-| Fly.io | Backend hosting (FastAPI) | $5-25 |
+| Google Cloud Run | Backend hosting (FastAPI) | $0 (always-free covers single-user traffic; verification card only) |
+| Cloudflare Pages | Admin frontend hosting | $0 (free tier) |
 | Supabase | Postgres DB | $0-25 |
 | Upstash (Phase 2+) | Redis for scheduled posting queue | $0-10 |
 | Email (Resend/SendGrid) | Newsletter | $0-30 |
-| Cloud storage | Property photos (Drive/Dropbox — his existing) | $0-15 |
+| Google Drive | Property photos (his account) | $0-20 |
 
 **Realistic totals**:
 - Month 1-3 (light use): **$50-100/mo**
@@ -233,7 +234,7 @@ Safe starting budget to tell him: **~$150/mo**, grows with usage.
 
 - **Backend**: Python + FastAPI (uv-managed, pytest)
 - **DB**: Postgres via **Supabase** (hosted — no local Docker). Treat as plain Postgres; no lock-in to Supabase-specific features (Auth, RLS, etc.) unless a real need shows up.
-- **Backend hosting**: **Fly.io** (user has used it before, prefers it). Dockerfile managed by `fly launch`; no local Docker needed for dev.
+- **Backend hosting**: **Google Cloud Run** (decided 2026-05-03). Free tier covers single-user traffic; container deployed via `gcloud run deploy`. Same GCP project as Drive OAuth (one less vendor).
 - **Queue/scheduler** (Phase 2+): **Upstash** Redis (hosted) + cron workers on Fly. Not needed in Phase 1.
 - **Admin dashboard**: separate React SPA — Vite + TypeScript + Vitest (unit) + Playwright (E2E)
 - **AI**: OpenAI API (GPT + Whisper)

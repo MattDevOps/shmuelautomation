@@ -32,7 +32,7 @@ notes.md     # internal project notes
 ## Infrastructure
 
 - **Database**: [Supabase](https://supabase.com) (hosted Postgres). Used as plain Postgres — no Supabase-specific features.
-- **Backend hosting**: [Fly.io](https://fly.io) for the FastAPI service.
+- **Backend hosting**: [Google Cloud Run](https://cloud.google.com/run) — same GCP project as Drive OAuth, free tier covers single-user traffic.
 - **Photo storage**: Google Drive (per-broker; OAuth on Shmuel's own account).
 - **Redis** (Phase 2 hooks not used yet, queue is on-demand): [Upstash](https://upstash.com) when we eventually add background jobs.
 
@@ -141,7 +141,7 @@ Use `[classic_listings type="rent" limit="12"]` in any WordPress page or post.
 
 ## Deployment (later)
 
-- Backend → `fly deploy` from `backend/` (we'll add `fly.toml` when we cut over to Supabase + Fly).
+- Backend → `gcloud run deploy` from `backend/`. Container builds from a Dockerfile in `backend/` (added at deploy time).
 - Admin → static build, served by Fly or Cloudflare Pages (TBD).
 - DB → Supabase; `alembic upgrade head` against the prod connection string.
 
