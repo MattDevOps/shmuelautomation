@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ApiError } from '../api/client'
+import { API_URL, ApiError } from '../api/client'
 import { deletePhoto, listPhotos, uploadPhoto } from '../api/cloud'
 import type { CloudPhoto } from '../api/types'
 
@@ -13,16 +13,30 @@ interface UploadFailure {
   message: string
 }
 
-function thumbnailFor(p: {
-  thumbnail_url: string | null
-  external_id: string
-}): string {
-  // Drive may not have rendered the thumbnail at upload time; this stable URL
-  // always resolves for the file owner (Shmuel logged into Drive in the same
-  // browser). Falls back to whatever we stored if Drive populated it.
+function thumbnailFor(p: { id: string; property_id: string }): string {
+  // Hits a backend redirect that resolves a fresh signed thumbnailLink from
+  // Drive on each load. Avoids relying on whatever Drive returned at upload
+  // time (often null because Drive renders thumbnails async) and avoids
+  // browser-session quirks of drive.google.com/thumbnail?id=… URLs.
+  return `${API_URL}/properties/${p.property_id}/photos/${p.id}/thumbnail`
+}
+
+function PhotoThumbnail({ photo }: { photo: CloudPhoto }) {
+  const [errored, setErrored] = useState(false)
+  if (errored) {
+    return (
+      <div className="photo-fallback" aria-label={photo.file_name}>
+        {photo.file_name}
+      </div>
+    )
+  }
   return (
-    p.thumbnail_url ??
-    `https://drive.google.com/thumbnail?id=${p.external_id}&sz=w400`
+    <img
+      src={thumbnailFor(photo)}
+      alt={photo.file_name}
+      referrerPolicy="no-referrer"
+      onError={() => setErrored(true)}
+    />
   )
 }
 
@@ -165,11 +179,7 @@ export default function PhotoSection({ propertyId }: Props) {
             <li key={p.id} className="photo-tile">
               <div className="photo-tile-image">
                 {p.external_id ? (
-                  <img
-                    src={thumbnailFor(p)}
-                    alt={p.file_name}
-                    referrerPolicy="no-referrer"
-                  />
+                  <PhotoThumbnail photo={p} />
                 ) : (
                   <div className="photo-fallback" aria-label={p.file_name}>
                     {p.file_name}

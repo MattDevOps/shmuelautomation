@@ -276,6 +276,41 @@ async def upload_photo(
     return photo
 
 
+@photos_router.get("/{property_id}/photos/{photo_id}/thumbnail")
+async def photo_thumbnail(
+    property_id: uuid.UUID, photo_id: uuid.UUID, session: SessionDep
+) -> Response:
+    """Resolve a fresh signed thumbnail URL for a photo, then 302 the browser
+    there. Drive's thumbnailLink expires on the order of hours, so we fetch a
+    fresh one on every request rather than caching it."""
+    photo = await session.get(CloudPhoto, photo_id)
+    if photo is None or photo.property_id != property_id:
+        raise HTTPException(status_code=404, detail="photo not found")
+
+    conn = await _require_connection(session)
+    try:
+        url = await storage.get_thumbnail_url(
+            decrypt(conn.encrypted_refresh_token), photo.external_id
+        )
+    except CloudUnauthorizedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            detail=f"Drive credentials no longer valid ({exc}).",
+        ) from exc
+    except CloudStorageError:
+        url = None
+
+    if not url:
+        # Drive hasn't generated a thumbnail yet — common just after upload.
+        # 404 lets the frontend's onError fall back to the filename tile.
+        raise HTTPException(status_code=404, detail="thumbnail not ready")
+
+    return Response(
+        status_code=302,
+        headers={"location": url, "cache-control": "public, max-age=300"},
+    )
+
+
 @photos_router.delete(
     "/{property_id}/photos/{photo_id}",
     status_code=status.HTTP_204_NO_CONTENT,

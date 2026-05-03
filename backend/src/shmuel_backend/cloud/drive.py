@@ -246,6 +246,20 @@ class GoogleDriveStorage(CloudStorage):
         _raise_if_unauthorized(r)
         return _to_file(r.json())
 
+    async def get_thumbnail_url(
+        self, refresh_token: str, file_id: str
+    ) -> str | None:
+        access = await refresh_access_token(refresh_token)
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                f"{DRIVE_API}/files/{file_id}",
+                headers=_auth_headers(access),
+                params={"fields": "thumbnailLink"},
+            )
+        _raise_if_unauthorized(r)
+        link = r.json().get("thumbnailLink")
+        return str(link) if link else None
+
     async def trash_file(self, refresh_token: str, file_id: str) -> None:
         access = await refresh_access_token(refresh_token)
         async with httpx.AsyncClient(timeout=10) as client:

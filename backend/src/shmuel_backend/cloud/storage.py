@@ -56,3 +56,9 @@ class CloudStorage(Protocol):
     async def trash_file(self, refresh_token: str, file_id: str) -> None: ...
 
     async def get_account_email(self, refresh_token: str) -> str | None: ...
+
+    async def get_thumbnail_url(
+        self, refresh_token: str, file_id: str
+    ) -> str | None:
+        """Fetch a fresh, signed thumbnail URL for a file (None if not yet ready)."""
+        ...

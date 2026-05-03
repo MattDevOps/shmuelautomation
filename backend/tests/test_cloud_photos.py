@@ -187,6 +187,70 @@ def test_list_returns_photos_for_property(client: TestClient) -> None:
 
 
 @respx.mock
+def test_thumbnail_redirects_to_fresh_drive_url(client: TestClient) -> None:
+    _connect_drive(client, respx.mock)
+    pid = _create_property(client)
+    respx.mock.get("https://www.googleapis.com/drive/v3/files").mock(
+        side_effect=[__resp({"files": []})]
+    )
+    _stub_subfolder_create(respx.mock)
+    _stub_file_upload(respx.mock)
+    created = client.post(
+        f"/properties/{pid}/photos",
+        files={"file": ("front.jpg", b"abc", "image/jpeg")},
+    ).json()
+
+    # Drive returns a fresh thumbnail URL on the metadata fetch
+    respx.mock.get(
+        f"https://www.googleapis.com/drive/v3/files/{created['external_id']}"
+    ).respond(
+        json={"thumbnailLink": "https://lh3.googleusercontent.com/sig=abc"}
+    )
+
+    r = client.get(
+        f"/properties/{pid}/photos/{created['id']}/thumbnail",
+        follow_redirects=False,
+    )
+    assert r.status_code == 302
+    assert r.headers["location"] == "https://lh3.googleusercontent.com/sig=abc"
+    assert r.headers["cache-control"] == "public, max-age=300"
+
+
+@respx.mock
+def test_thumbnail_404_when_drive_has_no_thumbnail_yet(client: TestClient) -> None:
+    _connect_drive(client, respx.mock)
+    pid = _create_property(client)
+    respx.mock.get("https://www.googleapis.com/drive/v3/files").mock(
+        side_effect=[__resp({"files": []})]
+    )
+    _stub_subfolder_create(respx.mock)
+    _stub_file_upload(respx.mock)
+    created = client.post(
+        f"/properties/{pid}/photos",
+        files={"file": ("front.jpg", b"abc", "image/jpeg")},
+    ).json()
+
+    # Drive hasn't rendered a thumbnail yet — empty thumbnailLink
+    respx.mock.get(
+        f"https://www.googleapis.com/drive/v3/files/{created['external_id']}"
+    ).respond(json={})
+
+    r = client.get(
+        f"/properties/{pid}/photos/{created['id']}/thumbnail",
+        follow_redirects=False,
+    )
+    assert r.status_code == 404
+
+
+def test_thumbnail_404_for_unknown_photo(client: TestClient) -> None:
+    pid = _create_property(client)
+    r = client.get(
+        f"/properties/{pid}/photos/00000000-0000-0000-0000-000000000000/thumbnail"
+    )
+    assert r.status_code == 404
+
+
+@respx.mock
 def test_delete_trashes_drive_file_then_removes_record(
     client: TestClient,
 ) -> None:
