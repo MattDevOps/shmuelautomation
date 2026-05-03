@@ -185,7 +185,7 @@ interface ListProps {
 
 function QueueList({ rows, onShare, onSkip, onCancel }: ListProps): React.ReactElement {
   return (
-    <table className="properties-table">
+    <div className="table-scroll"><table className="properties-table">
       <thead>
         <tr>
           <th scope="col">When</th>
@@ -233,6 +233,6 @@ function QueueList({ rows, onShare, onSkip, onCancel }: ListProps): React.ReactE
           )
         })}
       </tbody>
-    </table>
+    </table></div>
   )
 }

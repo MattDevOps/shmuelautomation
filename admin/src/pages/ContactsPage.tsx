@@ -145,7 +145,7 @@ export default function ContactsPage() {
           </p>
         </div>
       ) : (
-        <table className="properties-table">
+        <div className="table-scroll"><table className="properties-table">
           <caption className="sr-only">
             {rows.length} {rows.length === 1 ? 'contact' : 'contacts'}
           </caption>
@@ -195,7 +195,7 @@ export default function ContactsPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
     </section>
   )

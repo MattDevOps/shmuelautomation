@@ -27,7 +27,8 @@
 
 .site-nav {
   display: flex;
-  gap: var(--space-lg);
+  flex-wrap: wrap;
+  gap: var(--space-md) var(--space-lg);
 }
 
 .site-nav a {
@@ -65,6 +66,13 @@ main {
   main {
     padding: var(--space-lg) var(--space-md) var(--space-3xl);
   }
+}
+
+.table-scroll {
+  overflow-x: auto;
+  margin-inline: calc(-1 * var(--space-md));
+  padding-inline: var(--space-md);
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ───── Page header (h1 + actions) ──────────────────────────────── */
@@ -1026,5 +1034,26 @@ label.field > .label-text,
 @media (prefers-reduced-motion: reduce) {
   .photo-tile:hover .photo-tile-image img {
     transform: none;
+  }
+}
+
+/* ───── Mobile / tablet overrides ──────────────────────────────────
+   These rules need to win over their desktop counterparts on small
+   screens, so they live at the bottom of the file (CSS source order
+   matters when specificity ties). */
+@media (max-width: 720px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .page-header .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  /* Tables become horizontally scrollable rather than amputated. The
+     min-width keeps prices and timestamps readable; .table-scroll
+     wraps each table to provide the horizontal scroll. */
+  .properties-table {
+    min-width: 640px;
   }
 }

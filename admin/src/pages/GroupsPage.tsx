@@ -112,7 +112,7 @@ export default function GroupsPage() {
               style={{ marginTop: 'var(--space-xl)' }}
             >
               <h2 id={`platform-${p}`}>{PLATFORM_LABELS[p]}</h2>
-              <table className="properties-table">
+              <div className="table-scroll"><table className="properties-table">
                 <thead>
                   <tr>
                     <th scope="col">Name</th>
@@ -167,7 +167,7 @@ export default function GroupsPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             </section>
           ),
         )

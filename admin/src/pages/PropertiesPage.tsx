@@ -171,7 +171,7 @@ export default function PropertiesPage() {
           )}
         </div>
       ) : (
-        <table className="properties-table">
+        <div className="table-scroll"><table className="properties-table">
           <caption className="sr-only">
             {rows.length} {rows.length === 1 ? 'property' : 'properties'}
           </caption>
@@ -229,7 +229,7 @@ export default function PropertiesPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       )}
     </section>
   )
