@@ -17,5 +17,13 @@ class Settings(BaseSettings):
     google_oauth_redirect_uri: str = "http://localhost:8000/auth/google/callback"
     admin_redirect_uri: str = "http://localhost:5173/settings"
 
+    # Scheduler — Asia/Jerusalem times. Configurable later via a settings UI.
+    schedule_tz: str = "Asia/Jerusalem"
+    schedule_morning_slot: str = "08:00"
+    schedule_evening_slot: str = "20:00"
+    schedule_posts_per_slot: int = 3
+    schedule_friday_block_after: str = "13:00"
+    schedule_saturday_resume_at: str = "21:00"
+
 
 settings = Settings()

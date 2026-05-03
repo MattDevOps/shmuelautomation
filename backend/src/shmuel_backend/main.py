@@ -6,6 +6,8 @@ from shmuel_backend.config import settings
 from shmuel_backend.contacts import router as contacts_router
 from shmuel_backend.properties import router as properties_router
 from shmuel_backend.public import router as public_router
+from shmuel_backend.queue_routes import compose_router
+from shmuel_backend.queue_routes import router as queue_router
 
 app = FastAPI(title="Shmuel Realty Backend")
 
@@ -22,6 +24,8 @@ app.include_router(photos_router)
 app.include_router(oauth_router)
 app.include_router(public_router)
 app.include_router(contacts_router)
+app.include_router(queue_router)
+app.include_router(compose_router)
 
 
 @app.get("/health")

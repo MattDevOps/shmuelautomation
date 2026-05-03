@@ -17,7 +17,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shmuel_backend.db import Base
-from shmuel_backend.enums import BrokerFeeStatus, PropertyStatus, PropertyType
+from shmuel_backend.enums import (
+    BrokerFeeStatus,
+    PostSlotStatus,
+    PropertyStatus,
+    PropertyType,
+)
 
 
 class Property(Base):
@@ -143,6 +148,38 @@ class Contact(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PostSlot(Base):
+    """A scheduled posting opportunity for a property.
+
+    The scheduler computes `scheduled_for` at create time and stores it as
+    UTC. Status moves pending → posted (admin pressed "share") or skipped /
+    cancelled. We never auto-fire posts — the queue is computed on demand
+    when the admin opens the dashboard, then the admin taps share for each.
+    """
+
+    __tablename__ = "post_slots"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    property_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("properties.id", ondelete="CASCADE"), index=True
+    )
+    scheduled_for: Mapped[datetime] = mapped_column(index=True)
+    status: Mapped[PostSlotStatus] = mapped_column(
+        Enum(PostSlotStatus, name="post_slot_status", native_enum=False, length=16),
+        default=PostSlotStatus.PENDING,
+        index=True,
+    )
+    priority: Mapped[int] = mapped_column(default=100)
+    posted_at: Mapped[datetime | None] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    property: Mapped[Property] = relationship()
+
+    __table_args__ = (
+        Index("ix_post_slots_status_scheduled", "status", "scheduled_for"),
     )
 
 

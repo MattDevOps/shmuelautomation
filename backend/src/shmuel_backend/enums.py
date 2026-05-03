@@ -16,3 +16,10 @@ class BrokerFeeStatus(StrEnum):
     YES = "yes"
     NO = "no"
     PARTIAL = "partial"
+
+
+class PostSlotStatus(StrEnum):
+    PENDING = "pending"
+    POSTED = "posted"
+    SKIPPED = "skipped"
+    CANCELLED = "cancelled"  # property went rented/sold or was deleted

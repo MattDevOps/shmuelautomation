@@ -12,6 +12,7 @@ from shmuel_backend.db import get_session
 from shmuel_backend.enums import PropertyStatus, PropertyType
 from shmuel_backend.excel import properties_to_xlsx
 from shmuel_backend.models import Property
+from shmuel_backend.queue_routes import cancel_pending_for, enqueue_property
 from shmuel_backend.schemas import (
     PropertyCreate,
     PropertyRead,
@@ -76,6 +77,10 @@ async def list_properties(
 async def create_property(payload: PropertyCreate, session: SessionDep) -> Property:
     prop = Property(**payload.model_dump())
     session.add(prop)
+    await session.flush()  # so prop.id is populated for the post-slot FK
+    # New listings go into the queue at higher priority so they post first.
+    if prop.status == PropertyStatus.AVAILABLE:
+        await enqueue_property(session, prop.id, priority=200)
     await session.commit()
     await session.refresh(prop)
     return prop
@@ -128,8 +133,15 @@ async def update_property(
     prop = await session.get(Property, property_id)
     if prop is None:
         raise HTTPException(status_code=404, detail="property not found")
+    previous_status = prop.status
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(prop, field, value)
+    # When a property leaves the available pool, cancel any pending posts;
+    # when it returns to available, queue a fresh slot.
+    if previous_status == PropertyStatus.AVAILABLE and prop.status != PropertyStatus.AVAILABLE:
+        await cancel_pending_for(session, prop.id)
+    elif previous_status != PropertyStatus.AVAILABLE and prop.status == PropertyStatus.AVAILABLE:
+        await enqueue_property(session, prop.id)
     await session.commit()
     await session.refresh(prop)
     return prop

@@ -4,7 +4,12 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from shmuel_backend.enums import BrokerFeeStatus, PropertyStatus, PropertyType
+from shmuel_backend.enums import (
+    BrokerFeeStatus,
+    PostSlotStatus,
+    PropertyStatus,
+    PropertyType,
+)
 
 
 class PropertyBase(BaseModel):
@@ -67,6 +72,35 @@ class PropertyRead(PropertyBase):
 
 class Yad2ImportRequest(BaseModel):
     url: str = Field(min_length=1, max_length=500)
+
+
+class PostSlotRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    property_id: uuid.UUID
+    scheduled_for: datetime
+    status: PostSlotStatus
+    priority: int
+    posted_at: datetime | None = None
+    created_at: datetime
+
+
+class PostSlotWithProperty(PostSlotRead):
+    """A queue row for the admin UI — includes the property snippet so the
+    page can render a row without an extra fetch per item."""
+
+    property_type: PropertyType
+    property_neighborhood: str | None = None
+    property_address: str | None = None
+    property_price: Decimal
+
+
+class PostCompose(BaseModel):
+    text_en: str
+    text_he: str
+    whatsapp_share_url: str
+    facebook_share_url: str | None = None
 
 
 class PublicPhoto(BaseModel):
