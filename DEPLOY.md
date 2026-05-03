@@ -145,6 +145,40 @@ After that, any uncaught exception in production fires an alert to Sentry. Confi
 
 ---
 
+## Keep-warm during business hours (optional)
+
+Cloud Run scales to zero when idle. The first request after idle takes
+~2 sec for the container to warm up — fine, but Shmuel might notice.
+
+The cleanest fix is a **Cloud Scheduler** job that pings `/healthz`
+every 10 minutes during business hours. Free tier covers up to 3 jobs.
+
+```bash
+# One-time setup:
+gcloud services enable cloudscheduler.googleapis.com
+
+gcloud scheduler jobs create http keep-warm \
+  --location me-west1 \
+  --schedule "*/10 7-22 * * 0-4,6" \
+  --time-zone Asia/Jerusalem \
+  --uri "https://api.classicjerusalem.com/healthz" \
+  --http-method GET \
+  --description "Keep the API container warm during business hours, Sun-Thu + Sat eve"
+```
+
+The cron expression `*/10 7-22 * * 0-4,6` means: every 10 minutes,
+between 07:00 and 22:00 Jerusalem time, on Sunday through Thursday
+plus Saturday (giving the Saturday-night posting slot a warm container).
+Friday is intentionally skipped — Shabbat starts at sundown and we don't
+post anyway.
+
+Cost stays $0 (Cloud Scheduler free tier covers 3 jobs; Cloud Run free
+tier covers the requests). If we ever want to disable it:
+
+```bash
+gcloud scheduler jobs delete keep-warm --location me-west1
+```
+
 ## Rollback
 
 ### Bad code deploy
