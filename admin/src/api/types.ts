@@ -79,6 +79,35 @@ export interface ContactListFilters {
   offset?: number
 }
 
+export const POST_SLOT_STATUSES = [
+  'pending',
+  'posted',
+  'skipped',
+  'cancelled',
+] as const
+export type PostSlotStatus = (typeof POST_SLOT_STATUSES)[number]
+
+export interface PostSlotWithProperty {
+  id: string
+  property_id: string
+  scheduled_for: string
+  status: PostSlotStatus
+  priority: number
+  posted_at: string | null
+  created_at: string
+  property_type: PropertyType
+  property_neighborhood: string | null
+  property_address: string | null
+  property_price: string
+}
+
+export interface PostCompose {
+  text_en: string
+  text_he: string
+  whatsapp_share_url: string
+  facebook_share_url: string | null
+}
+
 export interface CloudConnectionStatus {
   provider: string
   connected: boolean
