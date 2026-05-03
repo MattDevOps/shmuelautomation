@@ -7,6 +7,7 @@ import PropertiesPage from './pages/PropertiesPage'
 import PropertyEditPage from './pages/PropertyEditPage'
 import QueuePage from './pages/QueuePage'
 import SettingsPage from './pages/SettingsPage'
+import SystemPage from './pages/SystemPage'
 import './App.css'
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
           <NavLink to="/contacts">Contacts</NavLink>
           <NavLink to="/import">Import from Yad2</NavLink>
           <NavLink to="/settings">Settings</NavLink>
+          <NavLink to="/system">System</NavLink>
         </nav>
       </header>
       <main>
@@ -41,6 +43,7 @@ export default function App() {
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/contacts/new" element={<ContactEditPage />} />
           <Route path="/contacts/:id" element={<ContactEditPage />} />
+          <Route path="/system" element={<SystemPage />} />
           <Route path="/:id" element={<PropertyEditPage />} />
         </Routes>
       </main>

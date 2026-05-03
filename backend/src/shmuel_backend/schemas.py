@@ -216,6 +216,25 @@ class CloudConnectionStatus(BaseModel):
     root_folder_name: str | None = None
 
 
+class SystemStatus(BaseModel):
+    """Aggregated system health for the admin /system page.
+
+    What Shmuel needs to self-diagnose 'is the system OK' before calling.
+    Cheap — a handful of indexed SELECTs. Don't expose secrets here.
+    """
+
+    environment: str
+    db_ok: bool
+    drive_connected: bool
+    drive_account_email: str | None = None
+    queue_pending_count: int
+    queue_due_now_count: int
+    properties_available: int
+    properties_total: int
+    contacts_count: int
+    groups_active: int
+
+
 class CloudPhotoRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

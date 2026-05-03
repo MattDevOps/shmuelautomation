@@ -161,6 +161,19 @@ export interface CloudConnectionStatus {
   root_folder_name: string | null
 }
 
+export interface SystemStatus {
+  environment: string
+  db_ok: boolean
+  drive_connected: boolean
+  drive_account_email: string | null
+  queue_pending_count: number
+  queue_due_now_count: number
+  properties_available: number
+  properties_total: number
+  contacts_count: number
+  groups_active: number
+}
+
 export interface CloudPhoto {
   id: string
   property_id: string

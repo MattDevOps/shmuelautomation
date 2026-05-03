@@ -1019,6 +1019,55 @@ label.field > .label-text,
   color: var(--clay);
 }
 
+/* ───── /system page status cards ──────────────────────────────── */
+
+.system-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+.status-card {
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  padding: var(--space-lg);
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.status-card header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.status-card-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  flex-shrink: 0;
+}
+
+.status-card[data-ok='false'] .status-card-dot {
+  background: var(--alert);
+}
+
+.status-card-value {
+  font-family: var(--font-display);
+  font-size: var(--t-2xl);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.status-card-sub {
+  color: var(--ink-soft);
+  font-size: var(--t-sm);
+}
+
 .active-toggle {
   display: inline-flex;
   align-items: center;
