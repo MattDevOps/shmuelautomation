@@ -5,6 +5,20 @@ Newest at the top. Each section is self-contained — no cross-references needed
 
 ---
 
+## Phase 2 — group lists added — 2026-05-03
+
+Quick add-on to the queue workflow:
+
+**Manage your group list once, then forget it.** New page in the dashboard called Groups. Add every WhatsApp group, Facebook group, your WhatsApp Status, Janglo, anything else — once, with a name + paste link. Tag each one as for-rentals, for-sales, or both.
+
+**The share modal now ticks them off as you go.** When you tap Compose & share on a property, the right groups for that property type appear as a checklist underneath the post text. Tap each name as you send the post to that group — keeps you on track for the 20+ destinations without losing your place. Tap the small "open ↗" link next to any group name to jump straight to it in WhatsApp / Facebook.
+
+**Disable groups you've outgrown** without losing them. Toggle "Active" off — they stay in the system for later but stop showing up in the share modal.
+
+This pairs with the queue: the schedule decides *when*, your group list decides *where*, you pick *what to send* with one tap.
+
+---
+
 ## Phase 2 head — posting queue + one-tap share — 2026-05-03
 
 Hey Shmuel — the daily-posting workflow is now ready. This is the part that should save you the most time:

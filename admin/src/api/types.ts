@@ -108,6 +108,52 @@ export interface PostCompose {
   facebook_share_url: string | null
 }
 
+export const GROUP_PLATFORMS = [
+  'whatsapp',
+  'whatsapp_status',
+  'facebook',
+  'janglo',
+  'other',
+] as const
+export type GroupPlatform = (typeof GROUP_PLATFORMS)[number]
+
+export const GROUP_AUDIENCES = ['rent', 'sale', 'both'] as const
+export type GroupAudience = (typeof GROUP_AUDIENCES)[number]
+
+export interface Group {
+  id: string
+  platform: GroupPlatform
+  audience: GroupAudience
+  name: string
+  target_url: string | null
+  notes: string | null
+  sort_order: number
+  active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type GroupCreate = Omit<Group, 'id' | 'created_at' | 'updated_at'>
+export type GroupUpdate = Partial<GroupCreate>
+
+export const PLATFORM_LABELS: Record<GroupPlatform, string> = {
+  whatsapp: 'WhatsApp groups',
+  whatsapp_status: 'WhatsApp status',
+  facebook: 'Facebook groups',
+  janglo: 'Janglo',
+  other: 'Other',
+}
+
+export const EMPTY_GROUP: GroupCreate = {
+  platform: 'whatsapp',
+  audience: 'both',
+  name: '',
+  target_url: null,
+  notes: null,
+  sort_order: 0,
+  active: true,
+}
+
 export interface CloudConnectionStatus {
   provider: string
   connected: boolean

@@ -17,6 +17,21 @@ const baseCompose = {
   facebook_share_url: 'https://www.facebook.com/sharer/sharer.php?u=https',
 }
 
+function setupFetch(
+  fetchSpy: ReturnType<typeof vi.spyOn>,
+  opts: {
+    compose?: typeof baseCompose
+    groups?: Array<Record<string, unknown>>
+  } = {},
+): void {
+  // The modal fires composePropertyPost + listGroups in parallel; route by URL.
+  fetchSpy.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = typeof input === 'string' ? input : input.toString()
+    if (url.includes('/groups')) return jsonResponse(opts.groups ?? [])
+    return jsonResponse(opts.compose ?? baseCompose)
+  })
+}
+
 describe('ShareModal', () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>
   beforeEach(() => {
@@ -27,10 +42,11 @@ describe('ShareModal', () => {
   })
 
   it('fetches the composed post and shows the English text by default', async () => {
-    fetchSpy.mockResolvedValueOnce(jsonResponse(baseCompose))
+    setupFetch(fetchSpy)
     render(
       <ShareModal
         propertyId="p1"
+        propertyType="rent"
         propertyLabel="Baka · ILS 8,500"
         onClose={() => {}}
       />,
@@ -39,10 +55,11 @@ describe('ShareModal', () => {
   })
 
   it('switches to Hebrew when the toggle is clicked', async () => {
-    fetchSpy.mockResolvedValueOnce(jsonResponse(baseCompose))
+    setupFetch(fetchSpy)
     render(
       <ShareModal
         propertyId="p1"
+        propertyType="rent"
         propertyLabel="Baka"
         onClose={() => {}}
       />,
@@ -53,10 +70,11 @@ describe('ShareModal', () => {
   })
 
   it('exposes WhatsApp + Facebook share links and a copy button', async () => {
-    fetchSpy.mockResolvedValueOnce(jsonResponse(baseCompose))
+    setupFetch(fetchSpy)
     render(
       <ShareModal
         propertyId="p1"
+        propertyType="rent"
         propertyLabel="Baka"
         onClose={() => {}}
       />,
@@ -72,7 +90,7 @@ describe('ShareModal', () => {
   })
 
   it('copies the displayed text to the clipboard', async () => {
-    fetchSpy.mockResolvedValueOnce(jsonResponse(baseCompose))
+    setupFetch(fetchSpy)
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText },
@@ -81,6 +99,7 @@ describe('ShareModal', () => {
     render(
       <ShareModal
         propertyId="p1"
+        propertyType="rent"
         propertyLabel="Baka"
         onClose={() => {}}
       />,
@@ -91,11 +110,12 @@ describe('ShareModal', () => {
   })
 
   it('closes when the × button is clicked', async () => {
-    fetchSpy.mockResolvedValueOnce(jsonResponse(baseCompose))
+    setupFetch(fetchSpy)
     const onClose = vi.fn()
     render(
       <ShareModal
         propertyId="p1"
+        propertyType="rent"
         propertyLabel="Baka"
         onClose={onClose}
       />,
@@ -106,12 +126,13 @@ describe('ShareModal', () => {
   })
 
   it('Mark as posted invokes onMarkPosted then closes', async () => {
-    fetchSpy.mockResolvedValueOnce(jsonResponse(baseCompose))
+    setupFetch(fetchSpy)
     const onClose = vi.fn()
     const onMarkPosted = vi.fn().mockResolvedValue(undefined)
     render(
       <ShareModal
         propertyId="p1"
+        propertyType="rent"
         propertyLabel="Baka"
         onClose={onClose}
         onMarkPosted={onMarkPosted}
@@ -119,11 +140,93 @@ describe('ShareModal', () => {
     )
     await screen.findByDisplayValue(/for rent/i)
     await userEvent.click(
-      screen.getByRole('button', { name: /mark as posted/i }),
+      screen.getByRole('button', { name: /mark slot as posted/i }),
     )
     await waitFor(() => {
       expect(onMarkPosted).toHaveBeenCalled()
       expect(onClose).toHaveBeenCalled()
     })
+  })
+
+  it('renders matching groups grouped by platform with checkboxes', async () => {
+    setupFetch(fetchSpy, {
+      groups: [
+        {
+          id: 'g1',
+          platform: 'whatsapp',
+          audience: 'rent',
+          name: 'Baka Rentals WA',
+          target_url: 'https://chat.whatsapp.com/abc',
+          notes: null,
+          sort_order: 0,
+          active: true,
+          created_at: '2026-05-03T00:00:00',
+          updated_at: '2026-05-03T00:00:00',
+        },
+        {
+          id: 'g2',
+          platform: 'facebook',
+          audience: 'both',
+          name: 'Jerusalem Real Estate',
+          target_url: null,
+          notes: null,
+          sort_order: 0,
+          active: true,
+          created_at: '2026-05-03T00:00:00',
+          updated_at: '2026-05-03T00:00:00',
+        },
+      ],
+    })
+    render(
+      <ShareModal
+        propertyId="p1"
+        propertyType="rent"
+        propertyLabel="Baka"
+        onClose={() => {}}
+      />,
+    )
+    expect(
+      await screen.findByRole('checkbox', { name: /baka rentals wa/i }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('checkbox', { name: /jerusalem real estate/i }),
+    ).toBeInTheDocument()
+    // Group jump-link rendered when target_url present
+    expect(
+      screen.getByRole('link', { name: /open ↗/ }).getAttribute('href'),
+    ).toBe('https://chat.whatsapp.com/abc')
+  })
+
+  it('toggles a group as posted when its checkbox is clicked', async () => {
+    setupFetch(fetchSpy, {
+      groups: [
+        {
+          id: 'g1',
+          platform: 'whatsapp',
+          audience: 'rent',
+          name: 'Baka Rentals WA',
+          target_url: null,
+          notes: null,
+          sort_order: 0,
+          active: true,
+          created_at: '2026-05-03T00:00:00',
+          updated_at: '2026-05-03T00:00:00',
+        },
+      ],
+    })
+    render(
+      <ShareModal
+        propertyId="p1"
+        propertyType="rent"
+        propertyLabel="Baka"
+        onClose={() => {}}
+      />,
+    )
+    const cb = await screen.findByRole('checkbox', { name: /baka rentals wa/i })
+    expect(cb).not.toBeChecked()
+    await userEvent.click(cb)
+    expect(cb).toBeChecked()
+    await userEvent.click(cb)
+    expect(cb).not.toBeChecked()
   })
 })

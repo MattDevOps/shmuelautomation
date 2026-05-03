@@ -6,6 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from shmuel_backend.enums import (
     BrokerFeeStatus,
+    GroupAudience,
+    GroupPlatform,
     PostSlotStatus,
     PropertyStatus,
     PropertyType,
@@ -166,6 +168,40 @@ class ContactUpdate(BaseModel):
 
 
 class ContactRead(ContactBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class GroupBase(BaseModel):
+    platform: GroupPlatform
+    audience: GroupAudience = GroupAudience.BOTH
+    name: str = Field(min_length=1, max_length=200)
+    target_url: str | None = Field(default=None, max_length=500)
+    notes: str | None = None
+    sort_order: int = 0
+    active: bool = True
+
+
+class GroupCreate(GroupBase):
+    pass
+
+
+class GroupUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    platform: GroupPlatform | None = None
+    audience: GroupAudience | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    target_url: str | None = Field(default=None, max_length=500)
+    notes: str | None = None
+    sort_order: int | None = None
+    active: bool | None = None
+
+
+class GroupRead(GroupBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID

@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from shmuel_backend.cloud_routes import oauth_router, photos_router
 from shmuel_backend.config import settings
 from shmuel_backend.contacts import router as contacts_router
+from shmuel_backend.groups import router as groups_router
 from shmuel_backend.properties import router as properties_router
 from shmuel_backend.public import router as public_router
 from shmuel_backend.queue_routes import compose_router
@@ -26,6 +27,7 @@ app.include_router(public_router)
 app.include_router(contacts_router)
 app.include_router(queue_router)
 app.include_router(compose_router)
+app.include_router(groups_router)
 
 
 @app.get("/health")

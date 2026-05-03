@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
+import { listGroups } from '../api/groups'
 import { composePropertyPost } from '../api/queue'
-import type { PostCompose } from '../api/types'
+import { PLATFORM_LABELS } from '../api/types'
+import type { Group, GroupPlatform, PostCompose } from '../api/types'
 
 interface Props {
   propertyId: string
   propertyLabel: string
+  propertyType: 'rent' | 'sale'
   onClose: () => void
   onMarkPosted?: () => Promise<void>
 }
@@ -14,10 +17,13 @@ type Lang = 'en' | 'he'
 export default function ShareModal({
   propertyId,
   propertyLabel,
+  propertyType,
   onClose,
   onMarkPosted,
 }: Props) {
   const [compose, setCompose] = useState<PostCompose | null>(null)
+  const [groups, setGroups] = useState<Group[]>([])
+  const [postedTo, setPostedTo] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [lang, setLang] = useState<Lang>('en')
   const [copied, setCopied] = useState(false)
@@ -25,9 +31,14 @@ export default function ShareModal({
 
   useEffect(() => {
     let cancelled = false
-    composePropertyPost(propertyId)
-      .then((c) => {
-        if (!cancelled) setCompose(c)
+    Promise.all([
+      composePropertyPost(propertyId),
+      listGroups({ matchesPropertyType: propertyType }),
+    ])
+      .then(([c, g]) => {
+        if (cancelled) return
+        setCompose(c)
+        setGroups(g)
       })
       .catch((e: Error) => {
         if (!cancelled) setError(e.message)
@@ -35,9 +46,8 @@ export default function ShareModal({
     return () => {
       cancelled = true
     }
-  }, [propertyId])
+  }, [propertyId, propertyType])
 
-  // Close on Escape
   useEffect(() => {
     function onKey(e: KeyboardEvent): void {
       if (e.key === 'Escape') onClose()
@@ -60,6 +70,15 @@ export default function ShareModal({
     setTimeout(() => setCopied(false), 1800)
   }
 
+  function toggleGroupPosted(id: string): void {
+    setPostedTo((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
   async function handleMarkPosted(): Promise<void> {
     if (!onMarkPosted) return
     setPosting(true)
@@ -71,6 +90,19 @@ export default function ShareModal({
     }
   }
 
+  // Group the groups by platform for the checklist rendering
+  const byPlatform = groups.reduce<Record<string, Group[]>>((acc, g) => {
+    ;(acc[g.platform] ??= []).push(g)
+    return acc
+  }, {})
+  const platformsInOrder: GroupPlatform[] = [
+    'whatsapp',
+    'whatsapp_status',
+    'facebook',
+    'janglo',
+    'other',
+  ]
+
   return (
     <div
       className="modal-backdrop"
@@ -81,7 +113,7 @@ export default function ShareModal({
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="modal">
+      <div className="modal modal-wide">
         <header className="modal-header">
           <div>
             <h2 id="share-title">Share property</h2>
@@ -131,7 +163,7 @@ export default function ShareModal({
               dir="auto"
               readOnly
               value={text}
-              rows={10}
+              rows={8}
             />
 
             <div className="modal-actions">
@@ -156,17 +188,65 @@ export default function ShareModal({
                   Share to Facebook
                 </a>
               )}
-              {onMarkPosted && (
+            </div>
+
+            {groups.length > 0 && (
+              <section
+                className="share-groups"
+                aria-labelledby="groups-heading"
+              >
+                <h3 id="groups-heading">Post to</h3>
+                <p className="muted">
+                  Tick each group as you send the post — keeps you on track.
+                </p>
+                {platformsInOrder.map((p) => {
+                  const list = byPlatform[p]
+                  if (!list) return null
+                  return (
+                    <div key={p} className="share-groups-platform">
+                      <span className="label-eyebrow">{PLATFORM_LABELS[p]}</span>
+                      <ul>
+                        {list.map((g) => (
+                          <li key={g.id}>
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={postedTo.has(g.id)}
+                                onChange={() => toggleGroupPosted(g.id)}
+                              />
+                              <span dir="auto">{g.name}</span>
+                              {g.target_url && (
+                                <a
+                                  href={g.target_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="share-groups-jump"
+                                >
+                                  open ↗
+                                </a>
+                              )}
+                            </label>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )
+                })}
+              </section>
+            )}
+
+            {onMarkPosted && (
+              <div className="modal-actions modal-actions-final">
                 <button
                   type="button"
                   className="btn-primary"
                   onClick={() => void handleMarkPosted()}
                   disabled={posting}
                 >
-                  {posting ? 'Marking…' : 'Mark as posted'}
+                  {posting ? 'Marking…' : 'Mark slot as posted'}
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </>
         ) : null}
       </div>

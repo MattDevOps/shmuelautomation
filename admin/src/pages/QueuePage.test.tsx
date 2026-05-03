@@ -71,16 +71,24 @@ describe('QueuePage', () => {
   })
 
   it('opens the share modal when Compose & share is clicked', async () => {
-    fetchSpy
-      .mockResolvedValueOnce(jsonResponse([makeSlot()]))
-      .mockResolvedValueOnce(
-        jsonResponse({
+    let queueLoaded = false
+    fetchSpy.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.includes('/post-queue') && !queueLoaded) {
+        queueLoaded = true
+        return jsonResponse([makeSlot()])
+      }
+      if (url.includes('/compose')) {
+        return jsonResponse({
           text_en: 'For rent — Baka',
           text_he: 'להשכרה',
           whatsapp_share_url: 'https://wa.me/?text=x',
           facebook_share_url: null,
-        }),
-      )
+        })
+      }
+      if (url.includes('/groups')) return jsonResponse([])
+      return jsonResponse([])
+    })
     renderPage()
     await userEvent.click(
       await screen.findByRole('button', { name: /compose and share baka/i }),

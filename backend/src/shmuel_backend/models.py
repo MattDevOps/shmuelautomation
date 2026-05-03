@@ -19,6 +19,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from shmuel_backend.db import Base
 from shmuel_backend.enums import (
     BrokerFeeStatus,
+    GroupAudience,
+    GroupPlatform,
     PostSlotStatus,
     PropertyStatus,
     PropertyType,
@@ -180,6 +182,41 @@ class PostSlot(Base):
 
     __table_args__ = (
         Index("ix_post_slots_status_scheduled", "status", "scheduled_for"),
+    )
+
+
+class Group(Base):
+    """A configurable destination for property posts.
+
+    Examples: a Facebook rental group called 'Jerusalem Apartments For Rent',
+    a WhatsApp group 'Baka Real Estate', or 'My WhatsApp Status'. Shmuel
+    manages this list from the admin so he can reorder, rename, or disable
+    groups without code changes.
+    """
+
+    __tablename__ = "groups"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    platform: Mapped[GroupPlatform] = mapped_column(
+        Enum(GroupPlatform, name="group_platform", native_enum=False, length=24),
+        index=True,
+    )
+    audience: Mapped[GroupAudience] = mapped_column(
+        Enum(GroupAudience, name="group_audience", native_enum=False, length=8),
+        default=GroupAudience.BOTH,
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    target_url: Mapped[str | None] = mapped_column(String(500))
+    notes: Mapped[str | None] = mapped_column(Text)
+    sort_order: Mapped[int] = mapped_column(default=0)
+    active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_groups_platform_audience", "platform", "audience"),
     )
 
 

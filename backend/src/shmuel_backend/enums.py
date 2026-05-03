@@ -23,3 +23,19 @@ class PostSlotStatus(StrEnum):
     POSTED = "posted"
     SKIPPED = "skipped"
     CANCELLED = "cancelled"  # property went rented/sold or was deleted
+
+
+class GroupPlatform(StrEnum):
+    WHATSAPP = "whatsapp"
+    WHATSAPP_STATUS = "whatsapp_status"
+    FACEBOOK = "facebook"
+    JANGLO = "janglo"
+    OTHER = "other"
+
+
+class GroupAudience(StrEnum):
+    """Which property types this group accepts."""
+
+    RENT = "rent"
+    SALE = "sale"
+    BOTH = "both"

@@ -167,6 +167,7 @@ export default function QueuePage() {
             sharing.property_price,
             sharing.property_type,
           )}`}
+          propertyType={sharing.property_type}
           onClose={() => setSharing(null)}
           onMarkPosted={() => handleMarkPosted(sharing)}
         />
