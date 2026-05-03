@@ -8,6 +8,7 @@ import {
 import { EMPTY_PROPERTY, type PropertyCreate } from '../api/types'
 import PhotoSection from '../components/PhotoSection'
 import PropertyForm from '../components/PropertyForm'
+import ShareModal from '../components/ShareModal'
 
 export default function PropertyEditPage() {
   const { id } = useParams<{ id: string }>()
@@ -18,6 +19,7 @@ export default function PropertyEditPage() {
     isCreate ? EMPTY_PROPERTY : null,
   )
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [sharing, setSharing] = useState(false)
 
   useEffect(() => {
     if (isCreate) return
@@ -72,6 +74,10 @@ export default function PropertyEditPage() {
       ? `${initial.neighborhood} — ${initial.type === 'rent' ? 'for rent' : 'for sale'}`
       : `${initial.type === 'rent' ? 'For rent' : 'For sale'}`
 
+  const shareLabel = initial.neighborhood
+    ? `${initial.neighborhood} · ${initial.type === 'rent' ? 'for rent' : 'for sale'}`
+    : `${initial.type === 'rent' ? 'For rent' : 'For sale'}`
+
   return (
     <section>
       <header className="page-header">
@@ -81,6 +87,17 @@ export default function PropertyEditPage() {
             {subhead}
           </p>
         </div>
+        {!isCreate && (
+          <div className="header-actions">
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => setSharing(true)}
+            >
+              Compose &amp; share now
+            </button>
+          </div>
+        )}
       </header>
       <PropertyForm
         initial={initial}
@@ -89,6 +106,14 @@ export default function PropertyEditPage() {
         onCancel={() => navigate('/')}
       />
       {!isCreate && id && <PhotoSection propertyId={id} />}
+      {sharing && id && (
+        <ShareModal
+          propertyId={id}
+          propertyLabel={shareLabel}
+          propertyType={initial.type}
+          onClose={() => setSharing(false)}
+        />
+      )}
     </section>
   )
 }

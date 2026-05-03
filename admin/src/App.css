@@ -317,6 +317,26 @@ label.field > .label-text,
   text-underline-offset: 0.2em;
 }
 
+/* …unless explicitly marked as primary — keeps Compose & share standing out
+   from Skip / Cancel / Edit / Delete in the queue. */
+.row-actions button.btn-primary {
+  background: var(--clay);
+  border: 1px solid var(--clay);
+  border-radius: 6px;
+  padding: var(--space-2xs) var(--space-md);
+  color: var(--paper);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: var(--t-sm);
+  margin-left: 0;
+}
+
+.row-actions button.btn-primary:hover {
+  background: var(--clay-deep);
+  border-color: var(--clay-deep);
+  color: var(--paper);
+}
+
 .cell-type {
   text-transform: uppercase;
   letter-spacing: 0.08em;

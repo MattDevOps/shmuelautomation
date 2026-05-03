@@ -150,14 +150,19 @@ test('create, edit, flip status, delete', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Properties' })).toBeVisible()
   await expect(page.getByText(/no properties match/i)).toBeVisible()
 
-  // Create
+  // Create — admin lands on the new property's edit page (so photos can be added)
   await page.getByRole('link', { name: /new property/i }).click()
   await page.getByRole('spinbutton', { name: /^price$/i }).fill('8500')
   await page.getByRole('textbox', { name: /^neighborhood$/i }).fill('Baka')
   await page.getByRole('textbox', { name: /^owner name$/i }).fill('Yossi')
   await page.getByRole('button', { name: 'Create' }).click()
 
-  // Back on list, row appears
+  // Land on the edit page with the new property pre-loaded
+  await expect(page.getByRole('heading', { name: /edit property/i })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: /^neighborhood$/i })).toHaveValue('Baka')
+
+  // Navigate to the list to verify the new row + flip status
+  await page.getByRole('link', { name: /^properties$/i }).click()
   await expect(page.getByRole('cell', { name: 'Baka', exact: true })).toBeVisible()
   await expect(page.getByRole('cell', { name: 'Yossi', exact: true })).toBeVisible()
 
