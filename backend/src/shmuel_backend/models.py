@@ -3,6 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Enum,
     ForeignKey,
@@ -117,6 +118,31 @@ class CloudPhoto(Base):
         UniqueConstraint(
             "property_id", "checksum", name="uq_cloud_photos_property_checksum"
         ),
+    )
+
+
+class Contact(Base):
+    """A person in the broker's address book.
+
+    Segments are a free-form list of tags (e.g. ['buyer', 'rehavia', 'vip']).
+    Stored as JSON for portability across Postgres and SQLite. For Phase 1 we
+    filter via simple SQL JSON operators; if querying gets complex later,
+    promote to a join table without a public API change.
+    """
+
+    __tablename__ = "contacts"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(200))
+    phone: Mapped[str | None] = mapped_column(String(50), index=True)
+    email: Mapped[str | None] = mapped_column(String(320))
+    language: Mapped[str | None] = mapped_column(String(8))
+    segments: Mapped[list[str]] = mapped_column(JSON, default=list)
+    notes: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str | None] = mapped_column(String(50))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
     )
 
 

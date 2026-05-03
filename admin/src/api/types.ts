@@ -45,6 +45,40 @@ export interface PropertyListFilters {
   offset?: number
 }
 
+export interface Contact {
+  id: string
+  name: string
+  phone: string | null
+  email: string | null
+  language: string | null
+  segments: string[]
+  notes: string | null
+  source: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ContactCreate = Omit<Contact, 'id' | 'created_at' | 'updated_at'>
+
+export type ContactUpdate = Partial<ContactCreate>
+
+export const EMPTY_CONTACT: ContactCreate = {
+  name: '',
+  phone: null,
+  email: null,
+  language: null,
+  segments: [],
+  notes: null,
+  source: 'manual',
+}
+
+export interface ContactListFilters {
+  segment?: string[]
+  q?: string
+  limit?: number
+  offset?: number
+}
+
 export interface CloudConnectionStatus {
   provider: string
   connected: boolean

@@ -711,6 +711,112 @@ label.field > .label-text,
   color: var(--alert);
 }
 
+/* ───── Segments (input + filter chips + table cells) ───────────── */
+
+.segment-input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  align-items: center;
+  padding: var(--space-2xs);
+  border: 1px solid var(--edge-strong);
+  border-radius: 6px;
+  background: var(--paper);
+  transition: border-color 120ms ease-out;
+}
+
+.segment-input:focus-within {
+  outline: 2px solid var(--clay);
+  outline-offset: 1px;
+  border-color: var(--clay);
+}
+
+.segment-input input {
+  flex: 1;
+  min-width: 12ch;
+  border: 0;
+  outline: 0;
+  padding: var(--space-2xs) var(--space-xs);
+  background: transparent;
+  font: inherit;
+  color: var(--ink);
+}
+
+.segment-tags {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs);
+}
+
+.segment-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-2xs) var(--space-xs);
+  background: var(--paper-deep);
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  font-size: var(--t-xs);
+  color: var(--ink);
+}
+
+.segment-tag button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: var(--t-base);
+  line-height: 1;
+  cursor: pointer;
+  color: var(--ink-soft);
+}
+
+.segment-tag button:hover {
+  color: var(--alert);
+}
+
+.segment-tags.small .segment-tag {
+  font-size: 0.75rem;
+  padding: 0 var(--space-xs);
+  line-height: 1.6;
+}
+
+.segment-filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--edge);
+  margin-bottom: var(--space-md);
+}
+
+.segment-tag-button {
+  background: var(--paper);
+  border: 1px solid var(--edge-strong);
+  border-radius: 999px;
+  padding: var(--space-2xs) var(--space-md);
+  font-size: var(--t-sm);
+  color: var(--ink-soft);
+  cursor: pointer;
+  font: inherit;
+  transition: background-color 120ms ease-out, border-color 120ms ease-out,
+    color 120ms ease-out;
+}
+
+.segment-tag-button:hover {
+  border-color: var(--ink-faint);
+  color: var(--ink);
+}
+
+.segment-tag-button.active {
+  background: var(--clay);
+  border-color: var(--clay);
+  color: var(--paper);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .photo-tile:hover .photo-tile-image img {
     transform: none;

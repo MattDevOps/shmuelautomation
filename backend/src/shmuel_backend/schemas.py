@@ -105,6 +105,40 @@ class PublicPropertyList(BaseModel):
     offset: int
 
 
+class ContactBase(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    phone: str | None = Field(default=None, max_length=50)
+    email: str | None = Field(default=None, max_length=320)
+    language: str | None = Field(default=None, max_length=8)
+    segments: list[str] = Field(default_factory=list)
+    notes: str | None = None
+    source: str | None = Field(default=None, max_length=50)
+
+
+class ContactCreate(ContactBase):
+    pass
+
+
+class ContactUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    phone: str | None = Field(default=None, max_length=50)
+    email: str | None = Field(default=None, max_length=320)
+    language: str | None = Field(default=None, max_length=8)
+    segments: list[str] | None = None
+    notes: str | None = None
+    source: str | None = Field(default=None, max_length=50)
+
+
+class ContactRead(ContactBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+
 class CloudConnectionStatus(BaseModel):
     provider: str
     connected: bool
