@@ -16,8 +16,10 @@ from shmuel_backend.properties import router as properties_router
 from shmuel_backend.public import router as public_router
 from shmuel_backend.queue_routes import compose_router
 from shmuel_backend.queue_routes import router as queue_router
+from shmuel_backend.sentry import configure_sentry
 
 configure_logging(settings.environment)
+configure_sentry()
 log = logging.getLogger(__name__)
 
 app = FastAPI(title="Shmuel Realty Backend")

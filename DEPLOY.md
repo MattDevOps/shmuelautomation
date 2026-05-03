@@ -116,7 +116,27 @@ Keep `http://localhost:8000/auth/google/callback` for local dev.
 
 ---
 
-## 4. Smoke test
+## 4. Sentry — error tracking (optional but recommended)
+
+Both the backend and admin ship the Sentry SDK; they no-op when the DSN env var is empty so dev / CI keep working unchanged. Setup is one-time:
+
+1. Sign up at <https://sentry.io> using Shmuel's email. Free tier covers us comfortably (5k errors/month).
+2. **New project → Python → FastAPI** → name it `shmuel-backend` → copy the DSN.
+3. **New project → React** → name it `shmuel-admin` → copy that DSN.
+4. Add to Cloud Run:
+   ```bash
+   echo -n "SENTRY_BACKEND_DSN" | gcloud secrets create sentry-dsn --data-file=-
+   gcloud run services update classic-jerusalem-realty-api \
+     --region me-west1 \
+     --update-secrets "SENTRY_DSN=sentry-dsn:latest"
+   ```
+5. Add to Cloudflare Pages → project → Settings → **Environment variables**:
+   - `VITE_SENTRY_DSN=<the React project DSN>` (Production scope)
+   - Trigger a redeploy so the new env is baked in.
+
+After that, any uncaught exception in production fires an alert to Sentry. Configure email/Slack notifications from the Sentry project settings.
+
+## 5. Smoke test
 
 1. Open `https://admin.classicjerusalem.com` — Properties page loads.
 2. `https://api.classicjerusalem.com/health` returns `{"status": "ok"}`.

@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     google_oauth_redirect_uri: str = "http://localhost:8000/auth/google/callback"
     admin_redirect_uri: str = "http://localhost:5173/settings"
 
+    # Sentry DSN for production error tracking. Empty = disabled (dev/CI default).
+    sentry_dsn: str = ""
+
     # Scheduler — Asia/Jerusalem times. Configurable later via a settings UI.
     schedule_tz: str = "Asia/Jerusalem"
     schedule_morning_slot: str = "08:00"

@@ -15,6 +15,7 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "cryptography>=44.0",
     "python-multipart>=0.0.18",
+    "sentry-sdk[fastapi]>=2.20",
 ]
 
 [dependency-groups]
