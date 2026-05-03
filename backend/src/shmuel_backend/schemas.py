@@ -206,6 +206,25 @@ class DuplicateMatch(BaseModel):
     address: str | None = None
 
 
+class BulkStatusUpdate(BaseModel):
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+    status: PropertyStatus
+
+
+class BulkDeleteRequest(BaseModel):
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+
+
+class BulkResult(BaseModel):
+    """Same shape for both bulk-status and bulk-delete: how many rows we
+    actually touched, and which ids we couldn't find. The frontend uses
+    `not_found` to surface partial failures so Shmuel knows e.g. a row
+    was already deleted in another tab."""
+
+    affected: int
+    not_found: list[uuid.UUID] = []
+
+
 class GroupBase(BaseModel):
     platform: GroupPlatform
     audience: GroupAudience = GroupAudience.BOTH

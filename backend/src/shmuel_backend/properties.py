@@ -14,6 +14,9 @@ from shmuel_backend.excel import properties_to_xlsx
 from shmuel_backend.models import Contact, Property
 from shmuel_backend.queue_routes import cancel_pending_for, enqueue_property
 from shmuel_backend.schemas import (
+    BulkDeleteRequest,
+    BulkResult,
+    BulkStatusUpdate,
     ContactMatch,
     DuplicateMatch,
     PropertyCreate,
@@ -159,6 +162,53 @@ async def find_duplicates(
             matches.append(p)
     matches.sort(key=lambda m: m.created_at, reverse=True)
     return matches
+
+
+@router.post("/bulk/status", response_model=BulkResult)
+async def bulk_update_status(
+    payload: BulkStatusUpdate, session: SessionDep
+) -> BulkResult:
+    """Apply the same status to many properties at once.
+
+    Reuses the same queue side-effects as the single-row PATCH:
+    leaving 'available' cancels pending posts; entering 'available'
+    enqueues a fresh slot. Missing ids are returned as `not_found`
+    rather than raising — bulk operations are best-effort by design.
+    """
+    new_status = payload.status
+    affected = 0
+    not_found: list[uuid.UUID] = []
+    for pid in payload.ids:
+        prop = await session.get(Property, pid)
+        if prop is None:
+            not_found.append(pid)
+            continue
+        previous_status = prop.status
+        prop.status = new_status
+        if previous_status == PropertyStatus.AVAILABLE and new_status != PropertyStatus.AVAILABLE:
+            await cancel_pending_for(session, prop.id)
+        elif previous_status != PropertyStatus.AVAILABLE and new_status == PropertyStatus.AVAILABLE:
+            await enqueue_property(session, prop.id)
+        affected += 1
+    await session.commit()
+    return BulkResult(affected=affected, not_found=not_found)
+
+
+@router.post("/bulk/delete", response_model=BulkResult)
+async def bulk_delete(
+    payload: BulkDeleteRequest, session: SessionDep
+) -> BulkResult:
+    affected = 0
+    not_found: list[uuid.UUID] = []
+    for pid in payload.ids:
+        prop = await session.get(Property, pid)
+        if prop is None:
+            not_found.append(pid)
+            continue
+        await session.delete(prop)
+        affected += 1
+    await session.commit()
+    return BulkResult(affected=affected, not_found=not_found)
 
 
 @router.get("/{property_id}", response_model=PropertyRead)

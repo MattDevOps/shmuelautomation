@@ -1,10 +1,12 @@
 import { API_URL, request } from './client'
 import type {
+  BulkResult,
   ContactMatch,
   DuplicateMatch,
   Property,
   PropertyCreate,
   PropertyListFilters,
+  PropertyStatus,
   PropertyUpdate,
   Yad2ImportPreview,
 } from './types'
@@ -75,4 +77,21 @@ export function findDuplicateProperties(
   const params = new URLSearchParams({ neighborhood, address })
   if (excludeId) params.set('exclude_id', excludeId)
   return request<DuplicateMatch[]>(`/properties/duplicates?${params.toString()}`)
+}
+
+export function bulkUpdateStatus(
+  ids: string[],
+  status: PropertyStatus,
+): Promise<BulkResult> {
+  return request<BulkResult>('/properties/bulk/status', {
+    method: 'POST',
+    body: JSON.stringify({ ids, status }),
+  })
+}
+
+export function bulkDeleteProperties(ids: string[]): Promise<BulkResult> {
+  return request<BulkResult>('/properties/bulk/delete', {
+    method: 'POST',
+    body: JSON.stringify({ ids }),
+  })
 }

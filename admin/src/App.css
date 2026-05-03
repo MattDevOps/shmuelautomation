@@ -157,6 +157,16 @@ main {
   transform: none;
 }
 
+.btn-danger {
+  border-color: color-mix(in oklab, var(--alert) 40%, var(--paper));
+  color: var(--alert);
+}
+
+.btn-danger:hover {
+  background: color-mix(in oklab, var(--alert) 8%, var(--paper));
+  border-color: var(--alert);
+}
+
 .link-button {
   background: none;
   border: 0;
@@ -343,6 +353,66 @@ label.field > .label-text,
   background: var(--clay-deep);
   border-color: var(--clay-deep);
   color: var(--paper);
+}
+
+/* ───── Bulk selection on the properties table ─────────────────── */
+
+.properties-table .cell-select {
+  width: 32px;
+  padding-right: 0;
+}
+
+.properties-table .cell-select input[type='checkbox'] {
+  cursor: pointer;
+  accent-color: var(--clay-deep);
+}
+
+.properties-table tbody tr[data-selected]:not(:hover) {
+  background: color-mix(in oklab, var(--clay) 5%, var(--paper));
+}
+
+.bulk-bar {
+  position: sticky;
+  top: var(--space-md);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  padding: var(--space-xs) var(--space-md);
+  margin: var(--space-md) 0;
+  border-radius: 8px;
+  background: var(--paper-deep);
+  border: 1px solid var(--edge-strong);
+  box-shadow: 0 2px 8px color-mix(in oklab, var(--ink) 8%, transparent);
+}
+
+.bulk-count {
+  font-size: var(--t-sm);
+}
+
+.bulk-count strong {
+  font-family: var(--font-display);
+  font-size: var(--t-md);
+  font-weight: 500;
+  margin-right: 4px;
+  color: var(--clay-deep);
+}
+
+.bulk-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--edge);
+}
+
+.bulk-label {
+  font-size: var(--t-sm);
+  color: var(--ink-soft);
+}
+
+.bulk-spacer {
+  flex: 1 1 auto;
+  min-width: var(--space-md);
 }
 
 .cell-type {

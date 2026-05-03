@@ -181,6 +181,11 @@ export interface DuplicateMatch {
   address: string | null
 }
 
+export interface BulkResult {
+  affected: number
+  not_found: string[]
+}
+
 export interface ContactImportRow {
   row_number: number
   name: string

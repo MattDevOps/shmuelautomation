@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   EXPORT_URL,
+  bulkDeleteProperties,
+  bulkUpdateStatus,
   deleteProperty,
   listProperties,
   updateProperty,
@@ -29,6 +31,15 @@ export default function PropertiesPage() {
   const [filters, setFilters] = useState<PropertyListFilters>({})
   const [rows, setRows] = useState<Property[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const selectAllRef = useRef<HTMLInputElement>(null)
+
+  async function reload(): Promise<void> {
+    const data = await listProperties(filters)
+    setRows(data)
+    setError(null)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -37,6 +48,9 @@ export default function PropertiesPage() {
         if (cancelled) return
         setRows(data)
         setError(null)
+        // Filter changes can drop rows; clear selection so the bulk bar
+        // doesn't reference ids that aren't visible anymore.
+        setSelected(new Set())
       })
       .catch((e: Error) => {
         if (cancelled) return
@@ -48,6 +62,30 @@ export default function PropertiesPage() {
     }
   }, [filters])
 
+  // Keep the select-all checkbox in indeterminate state when partially selected.
+  useEffect(() => {
+    if (!selectAllRef.current || !rows) return
+    const all = rows.length > 0 && rows.every((r) => selected.has(r.id))
+    const some = rows.some((r) => selected.has(r.id))
+    selectAllRef.current.checked = all
+    selectAllRef.current.indeterminate = some && !all
+  }, [rows, selected])
+
+  function toggleRow(id: string): void {
+    setSelected((s) => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleAll(): void {
+    if (!rows) return
+    const allSelected = rows.every((r) => selected.has(r.id))
+    setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.id)))
+  }
+
   async function flipStatus(p: Property, status: PropertyStatus): Promise<void> {
     const next = await updateProperty(p.id, { status })
     setRows((rs) => rs?.map((r) => (r.id === p.id ? next : r)) ?? null)
@@ -57,6 +95,43 @@ export default function PropertiesPage() {
     if (!confirm(`Delete property in ${p.neighborhood ?? 'unknown'}?`)) return
     await deleteProperty(p.id)
     setRows((rs) => rs?.filter((r) => r.id !== p.id) ?? null)
+  }
+
+  async function bulkStatus(status: PropertyStatus): Promise<void> {
+    const ids = Array.from(selected)
+    if (ids.length === 0) return
+    setBulkBusy(true)
+    try {
+      await bulkUpdateStatus(ids, status)
+      setSelected(new Set())
+      await reload()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Bulk update failed.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  async function bulkDelete(): Promise<void> {
+    const ids = Array.from(selected)
+    if (ids.length === 0) return
+    if (
+      !confirm(
+        `Delete ${ids.length} ${ids.length === 1 ? 'property' : 'properties'}? This cannot be undone.`,
+      )
+    ) {
+      return
+    }
+    setBulkBusy(true)
+    try {
+      await bulkDeleteProperties(ids)
+      setSelected(new Set())
+      await reload()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Bulk delete failed.')
+    } finally {
+      setBulkBusy(false)
+    }
   }
 
   return (
@@ -151,6 +226,49 @@ export default function PropertiesPage() {
         </p>
       )}
 
+      {selected.size > 0 && (
+        <div
+          className="bulk-bar"
+          role="region"
+          aria-label="Bulk actions for selected properties"
+        >
+          <span className="bulk-count">
+            <strong>{selected.size}</strong>{' '}
+            {selected.size === 1 ? 'selected' : 'selected'}
+          </span>
+          <span className="bulk-divider" aria-hidden="true" />
+          <span className="bulk-label">Mark as:</span>
+          {PROPERTY_STATUSES.map((s) => (
+            <button
+              key={s}
+              type="button"
+              className="btn"
+              onClick={() => void bulkStatus(s)}
+              disabled={bulkBusy}
+            >
+              {s}
+            </button>
+          ))}
+          <span className="bulk-spacer" />
+          <button
+            type="button"
+            className="btn btn-danger"
+            onClick={() => void bulkDelete()}
+            disabled={bulkBusy}
+          >
+            Delete
+          </button>
+          <button
+            type="button"
+            className="btn-link"
+            onClick={() => setSelected(new Set())}
+            disabled={bulkBusy}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {rows === null ? (
         <div className="callout">
           <p className="callout-display">Loading…</p>
@@ -177,6 +295,14 @@ export default function PropertiesPage() {
           </caption>
           <thead>
             <tr>
+              <th scope="col" className="cell-select">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  aria-label="Select all properties on this page"
+                  onChange={toggleAll}
+                />
+              </th>
               <th scope="col">Type</th>
               <th scope="col">Status</th>
               <th scope="col">Price</th>
@@ -190,7 +316,15 @@ export default function PropertiesPage() {
           </thead>
           <tbody>
             {rows.map((p) => (
-              <tr key={p.id}>
+              <tr key={p.id} data-selected={selected.has(p.id) || undefined}>
+                <td className="cell-select">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(p.id)}
+                    onChange={() => toggleRow(p.id)}
+                    aria-label={`Select ${p.neighborhood ?? p.id}`}
+                  />
+                </td>
                 <td className="cell-type">{p.type}</td>
                 <td>
                   <select
