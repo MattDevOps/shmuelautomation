@@ -191,10 +191,65 @@ describe('ShareModal', () => {
     expect(
       screen.getByRole('checkbox', { name: /jerusalem real estate/i }),
     ).toBeInTheDocument()
-    // Group jump-link rendered when target_url present
+    // Jump button rendered when target_url is present
     expect(
-      screen.getByRole('link', { name: /open ↗/ }).getAttribute('href'),
-    ).toBe('https://chat.whatsapp.com/abc')
+      screen.getByRole('button', {
+        name: /copy text and open baka rentals wa/i,
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('copies the post text and opens the URL when "copy & open" is clicked', async () => {
+    setupFetch(fetchSpy, {
+      groups: [
+        {
+          id: 'g1',
+          platform: 'whatsapp',
+          audience: 'rent',
+          name: 'Baka Rentals WA',
+          target_url: 'https://chat.whatsapp.com/abc',
+          notes: null,
+          sort_order: 0,
+          active: true,
+          created_at: '2026-05-03T00:00:00',
+          updated_at: '2026-05-03T00:00:00',
+        },
+      ],
+    })
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    })
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+
+    render(
+      <ShareModal
+        propertyId="p1"
+        propertyType="rent"
+        propertyLabel="Baka"
+        onClose={() => {}}
+      />,
+    )
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: /copy text and open baka rentals wa/i,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(baseCompose.text_en)
+      expect(open).toHaveBeenCalledWith(
+        'https://chat.whatsapp.com/abc',
+        '_blank',
+        'noopener,noreferrer',
+      )
+    })
+    expect(
+      screen.getByRole('button', {
+        name: /copy text and open baka rentals wa/i,
+      }),
+    ).toHaveTextContent(/copied ✓/i)
   })
 
   it('toggles a group as posted when its checkbox is clicked', async () => {

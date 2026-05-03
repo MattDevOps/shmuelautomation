@@ -5,6 +5,25 @@ Newest at the top. Each section is self-contained — no cross-references needed
 
 ---
 
+## Phase 2 complete — 2026-05-03
+
+The full posting workflow is wired up. Daily-posting summary, end-to-end:
+
+1. **A property goes into the queue automatically** when you add it. New listings jump to the front; nothing posts on Friday evening or Saturday.
+2. **At each scheduled slot, the dashboard shows the property is due.** Tap **Compose & share**.
+3. **The post is pre-written for you** in English or Hebrew (one-tap toggle).
+4. **Your group list appears below the post text** as a checklist — only the ones tagged for the property's type (rentals vs sales). For each group you want to post to, tap **copy & open ↗**:
+   - The post text is copied to your clipboard.
+   - The group / page opens in a new tab — WhatsApp group, Facebook group, Janglo category, anywhere you've saved as a destination.
+   - You paste, tap send, come back, and tick the group off your list.
+5. **Tap *Mark slot as posted*.** The system advances the queue.
+
+Everything in the workflow is yours to configure: which groups, which times, which languages, whether to skip or cancel a slot. Nothing posts automatically — you stay in control of every send so there's zero ban risk on your business number.
+
+**Janglo, WhatsApp Status, Facebook groups, custom destinations** — all handled the same way. Add the URL once under Groups, the share modal does the rest.
+
+---
+
 ## Phase 2 — group lists added — 2026-05-03
 
 Quick add-on to the queue workflow:

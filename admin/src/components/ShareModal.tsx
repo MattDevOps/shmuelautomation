@@ -27,6 +27,7 @@ export default function ShareModal({
   const [error, setError] = useState<string | null>(null)
   const [lang, setLang] = useState<Lang>('en')
   const [copied, setCopied] = useState(false)
+  const [jumpedTo, setJumpedTo] = useState<string | null>(null)
   const [posting, setPosting] = useState(false)
 
   useEffect(() => {
@@ -68,6 +69,18 @@ export default function ShareModal({
     await navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 1800)
+  }
+
+  async function copyAndOpen(groupId: string, url: string): Promise<void> {
+    if (!text) return
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      // Clipboard might be blocked in some browsers — still open the URL.
+    }
+    setJumpedTo(groupId)
+    setTimeout(() => setJumpedTo(null), 1800)
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   function toggleGroupPosted(id: string): void {
@@ -197,7 +210,9 @@ export default function ShareModal({
               >
                 <h3 id="groups-heading">Post to</h3>
                 <p className="muted">
-                  Tick each group as you send the post — keeps you on track.
+                  Tap <em>copy &amp; open ↗</em> on a group — the post text
+                  is copied to your clipboard and the group opens in a new
+                  tab. Paste, send, then tick it off.
                 </p>
                 {platformsInOrder.map((p) => {
                   const list = byPlatform[p]
@@ -216,14 +231,17 @@ export default function ShareModal({
                               />
                               <span dir="auto">{g.name}</span>
                               {g.target_url && (
-                                <a
-                                  href={g.target_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <button
+                                  type="button"
                                   className="share-groups-jump"
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    void copyAndOpen(g.id, g.target_url!)
+                                  }}
+                                  aria-label={`Copy text and open ${g.name}`}
                                 >
-                                  open ↗
-                                </a>
+                                  {jumpedTo === g.id ? 'copied ✓' : 'copy & open ↗'}
+                                </button>
                               )}
                             </label>
                           </li>
