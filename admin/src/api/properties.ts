@@ -1,6 +1,7 @@
 import { API_URL, request } from './client'
 import type {
   ContactMatch,
+  DuplicateMatch,
   Property,
   PropertyCreate,
   PropertyListFilters,
@@ -64,4 +65,14 @@ export function listMatchingContacts(
   return request<ContactMatch[]>(
     `/properties/${propertyId}/matching-contacts`,
   )
+}
+
+export function findDuplicateProperties(
+  neighborhood: string,
+  address: string,
+  excludeId?: string,
+): Promise<DuplicateMatch[]> {
+  const params = new URLSearchParams({ neighborhood, address })
+  if (excludeId) params.set('exclude_id', excludeId)
+  return request<DuplicateMatch[]>(`/properties/duplicates?${params.toString()}`)
 }

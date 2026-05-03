@@ -105,6 +105,7 @@ export default function PropertyEditPage() {
         submitLabel={isCreate ? 'Create' : 'Save changes'}
         onSubmit={save}
         onCancel={() => navigate('/')}
+        currentId={isCreate ? undefined : id}
       />
       {!isCreate && id && <MatchingContacts propertyId={id} />}
       {!isCreate && id && <PhotoSection propertyId={id} />}

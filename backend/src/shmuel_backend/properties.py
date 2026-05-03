@@ -15,6 +15,7 @@ from shmuel_backend.models import Contact, Property
 from shmuel_backend.queue_routes import cancel_pending_for, enqueue_property
 from shmuel_backend.schemas import (
     ContactMatch,
+    DuplicateMatch,
     PropertyCreate,
     PropertyRead,
     PropertyUpdate,
@@ -117,6 +118,47 @@ async def export_properties(session: SessionDep) -> Response:
         media_type=XLSX_MEDIA_TYPE,
         headers={"content-disposition": f'attachment; filename="{filename}"'},
     )
+
+
+def _normalize_address(value: str | None) -> str:
+    """Lowercase and collapse whitespace so '12 Emek Refaim' matches '12  emek refaim'."""
+    if not value:
+        return ""
+    return " ".join(value.lower().split())
+
+
+@router.get("/duplicates", response_model=list[DuplicateMatch])
+async def find_duplicates(
+    session: SessionDep,
+    neighborhood: Annotated[str, Query(min_length=1, max_length=200)],
+    address: Annotated[str, Query(min_length=1, max_length=500)],
+    exclude_id: uuid.UUID | None = None,
+) -> list[Property]:
+    """Look for existing properties at the same address.
+
+    Match: exact-after-normalize on neighborhood, plus equal-or-substring
+    match on address (handles "12 Emek Refaim" vs "12 Emek Refaim St").
+    Both fields are required — neighborhood alone is too broad to warn on.
+    """
+    nh = neighborhood.strip().lower()
+    addr = _normalize_address(address)
+    if not nh or not addr:
+        return []
+
+    rows = (await session.execute(select(Property))).scalars().all()
+    matches: list[Property] = []
+    for p in rows:
+        if exclude_id is not None and p.id == exclude_id:
+            continue
+        if not p.neighborhood or not p.address:
+            continue
+        if p.neighborhood.strip().lower() != nh:
+            continue
+        p_addr = _normalize_address(p.address)
+        if p_addr == addr or p_addr.startswith(addr) or addr.startswith(p_addr):
+            matches.append(p)
+    matches.sort(key=lambda m: m.created_at, reverse=True)
+    return matches
 
 
 @router.get("/{property_id}", response_model=PropertyRead)

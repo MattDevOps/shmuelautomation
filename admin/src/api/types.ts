@@ -171,6 +171,16 @@ export interface ContactMatch {
   match_reasons: string[]
 }
 
+export interface DuplicateMatch {
+  id: string
+  type: PropertyType
+  status: PropertyStatus
+  price: string
+  currency: string
+  neighborhood: string | null
+  address: string | null
+}
+
 export interface ContactImportRow {
   row_number: number
   name: string

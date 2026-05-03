@@ -192,6 +192,20 @@ class ContactMatch(BaseModel):
     match_reasons: list[str]
 
 
+class DuplicateMatch(BaseModel):
+    """Slim payload for the inline 'looks like a duplicate' warning."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    type: PropertyType
+    status: PropertyStatus
+    price: Decimal
+    currency: str
+    neighborhood: str | None = None
+    address: str | None = None
+
+
 class GroupBase(BaseModel):
     platform: GroupPlatform
     audience: GroupAudience = GroupAudience.BOTH

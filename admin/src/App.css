@@ -1073,6 +1073,68 @@ label.field > .label-text,
   color: var(--alert);
 }
 
+/* ───── Inline duplicate-property warning under address field ─── */
+
+.dupe-warning {
+  padding: var(--space-md) var(--space-lg);
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--clay) 6%, var(--paper));
+  border: 1px solid color-mix(in oklab, var(--clay) 28%, var(--paper));
+  color: var(--ink);
+}
+
+.dupe-warning-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-2xs);
+}
+
+.dupe-warning-head strong {
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--clay-deep);
+}
+
+.dupe-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.dupe-list li {
+  padding: var(--space-2xs) 0;
+  font-size: var(--t-sm);
+}
+
+.dupe-list a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--edge);
+  text-underline-offset: 2px;
+}
+
+.dupe-list a:hover {
+  text-decoration-color: var(--clay-deep);
+}
+
+.btn-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: var(--t-sm);
+  color: var(--ink-soft);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.btn-link:hover {
+  color: var(--ink);
+}
+
 /* ───── Matching contacts panel on the property edit page ──────── */
 
 .matching-contacts {

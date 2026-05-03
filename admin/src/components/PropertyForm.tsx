@@ -1,5 +1,7 @@
-import { useState, type FormEvent } from 'react'
-import type { PropertyCreate } from '../api/types'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
+import { findDuplicateProperties } from '../api/properties'
+import type { DuplicateMatch, PropertyCreate } from '../api/types'
 import {
   BROKER_FEE_STATUSES,
   PROPERTY_STATUSES,
@@ -11,6 +13,8 @@ interface Props {
   submitLabel: string
   onSubmit: (payload: PropertyCreate) => Promise<void>
   onCancel: () => void
+  /** Property being edited; excluded from dupe search so it doesn't match itself. */
+  currentId?: string
 }
 
 function nullable(v: string): string | null {
@@ -28,10 +32,13 @@ export default function PropertyForm({
   submitLabel,
   onSubmit,
   onCancel,
+  currentId,
 }: Props) {
   const [form, setForm] = useState<PropertyCreate>(initial)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([])
+  const [dismissedDupes, setDismissedDupes] = useState(false)
 
   function set<K extends keyof PropertyCreate>(
     key: K,
@@ -39,6 +46,37 @@ export default function PropertyForm({
   ): void {
     setForm((f) => ({ ...f, [key]: value }))
   }
+
+  // Debounced duplicate check — fires once both neighborhood + address are
+  // filled, refires when either changes. Aborts inflight on rapid edits.
+  // Note: when fields go empty we do NOT clear `duplicates` state here
+  // (that would be a setState-in-effect cascade); the render-time guard
+  // below handles hiding the warning instead.
+  const nhTrim = form.neighborhood?.trim() ?? ''
+  const addrTrim = form.address?.trim() ?? ''
+  useEffect(() => {
+    if (!nhTrim || !addrTrim) return
+    const ctl = new AbortController()
+    const timer = setTimeout(() => {
+      findDuplicateProperties(nhTrim, addrTrim, currentId)
+        .then((matches) => {
+          if (!ctl.signal.aborted) {
+            setDuplicates(matches)
+            setDismissedDupes(false)
+          }
+        })
+        .catch(() => {
+          // Non-blocking warning — silent on failure is fine.
+        })
+    }, 500)
+    return () => {
+      ctl.abort()
+      clearTimeout(timer)
+    }
+  }, [nhTrim, addrTrim, currentId])
+
+  const showDupes =
+    duplicates.length > 0 && !dismissedDupes && nhTrim !== '' && addrTrim !== ''
 
   async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault()
@@ -163,6 +201,45 @@ export default function PropertyForm({
             onChange={(e) => set('address', nullable(e.target.value))}
           />
         </label>
+
+        {showDupes && (
+          <div
+            className="field full dupe-warning"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="dupe-warning-head">
+              <strong>
+                {duplicates.length === 1
+                  ? 'You already have a property at this address.'
+                  : `You already have ${duplicates.length} properties at this address.`}
+              </strong>
+              <button
+                type="button"
+                className="btn-link"
+                onClick={() => setDismissedDupes(true)}
+                aria-label="Dismiss duplicate warning"
+              >
+                Dismiss
+              </button>
+            </div>
+            <ul className="dupe-list">
+              {duplicates.map((d) => (
+                <li key={d.id}>
+                  <Link to={`/${d.id}`}>
+                    {d.neighborhood ?? 'Unknown neighborhood'} —{' '}
+                    <span dir="auto">{d.address ?? '(no address)'}</span>
+                  </Link>
+                  <span className="muted">
+                    {' '}
+                    · {d.type === 'rent' ? 'for rent' : 'for sale'} ·{' '}
+                    {d.status} · {d.price} {d.currency}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <label className="field">
           <span className="label-text">Owner name</span>
