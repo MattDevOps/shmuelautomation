@@ -174,9 +174,20 @@ async def oauth_disconnect(session: SessionDep) -> Response:
 
 
 def _property_folder_name(p: Property) -> str:
+    """Build the Drive folder name for a property.
+
+    Format: "{Rent|Sale} — {neighborhood or address or 'Property'} ({short-id})"
+    Example: "Rent — Baka (4893a584)" or "Sale — Old Katamon (09e51041)"
+
+    The short UUID makes the folder unambiguous (two Bakas don't collide). The
+    type + location prefix makes folders scannable in the Drive UI.
+    """
+    from shmuel_backend.enums import PropertyType
+
     short_id = str(p.id)[:8]
-    base = p.neighborhood or p.address or "Property"
-    return f"{base} – {short_id}"
+    type_label = "Rent" if p.type == PropertyType.RENT else "Sale"
+    location = p.neighborhood or p.address or "Property"
+    return f"{type_label} — {location} ({short_id})"
 
 
 @photos_router.get("/{property_id}/photos", response_model=list[CloudPhotoRead])

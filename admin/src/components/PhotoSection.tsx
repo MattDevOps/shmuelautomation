@@ -13,6 +13,19 @@ interface UploadFailure {
   message: string
 }
 
+function thumbnailFor(p: {
+  thumbnail_url: string | null
+  external_id: string
+}): string {
+  // Drive may not have rendered the thumbnail at upload time; this stable URL
+  // always resolves for the file owner (Shmuel logged into Drive in the same
+  // browser). Falls back to whatever we stored if Drive populated it.
+  return (
+    p.thumbnail_url ??
+    `https://drive.google.com/thumbnail?id=${p.external_id}&sz=w400`
+  )
+}
+
 export default function PhotoSection({ propertyId }: Props) {
   const [photos, setPhotos] = useState<CloudPhoto[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -151,8 +164,12 @@ export default function PhotoSection({ propertyId }: Props) {
           {photos.map((p) => (
             <li key={p.id} className="photo-tile">
               <div className="photo-tile-image">
-                {p.thumbnail_url ? (
-                  <img src={p.thumbnail_url} alt={p.file_name} />
+                {p.external_id ? (
+                  <img
+                    src={thumbnailFor(p)}
+                    alt={p.file_name}
+                    referrerPolicy="no-referrer"
+                  />
                 ) : (
                   <div className="photo-fallback" aria-label={p.file_name}>
                     {p.file_name}

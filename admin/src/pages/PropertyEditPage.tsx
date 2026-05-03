@@ -48,11 +48,13 @@ export default function PropertyEditPage() {
 
   async function save(payload: PropertyCreate): Promise<void> {
     if (isCreate) {
-      await createProperty(payload)
+      const created = await createProperty(payload)
+      // Land on the new property's edit page so photos can be added immediately.
+      navigate(`/${created.id}`, { replace: true })
     } else {
       await updateProperty(id, payload)
+      navigate('/')
     }
-    navigate('/')
   }
 
   if (loadError) {
