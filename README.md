@@ -1,5 +1,7 @@
 # shmuelautomation
 
+[![CI](https://github.com/MattDevOps/shmuelautomation/actions/workflows/ci.yml/badge.svg)](https://github.com/MattDevOps/shmuelautomation/actions/workflows/ci.yml)
+
 Monorepo for Classic Jerusalem Realty's property CMS + automation platform.
 
 ```
