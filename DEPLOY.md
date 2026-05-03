@@ -147,13 +147,45 @@ After that, any uncaught exception in production fires an alert to Sentry. Confi
 
 ## Rollback
 
+### Bad code deploy
+
+Cloud Run keeps prior revisions; instant traffic shift, no rebuild needed:
+
 ```bash
 gcloud run services list-revisions --service classic-jerusalem-realty-api --region me-west1
 gcloud run services update-traffic classic-jerusalem-realty-api \
   --to-revisions PREVIOUS_REVISION_NAME=100 --region me-west1
 ```
 
-DB migrations are forward-compatible by convention — if a migration breaks, run `alembic downgrade -1` against the prod DB and redeploy the previous revision.
+### Bad migration
+
+Migrations are forward-compatible by convention. If one breaks, downgrade the live DB and redeploy the previous revision:
+
+```bash
+# Point at prod DB. Replace VALUE with the Supabase URI.
+DATABASE_URL=postgresql+asyncpg://VALUE  uv run alembic downgrade -1
+# Then traffic-shift Cloud Run as above.
+```
+
+### Accidental data wipe / corruption
+
+Supabase keeps **automatic daily backups** on every project (free tier: 7 days of daily snapshots; Pro tier: 7 days of point-in-time recovery in addition).
+
+To restore:
+
+1. <https://supabase.com/dashboard/project/PROJECT/database/backups> → pick the snapshot before the bad event → **Restore**.
+2. The restore creates a *new* database. You either:
+   - **(safe)** restore into a new Supabase project, point the backend at it via `gcloud run services update --update-secrets DATABASE_URL=…` to swap connection strings,
+   - **(faster but destructive)** overwrite the existing DB. Supabase prompts a typed confirmation.
+3. Run `alembic upgrade head` against the restored DB to apply any migrations newer than the backup.
+
+**Hard delete via the admin UI** is `DELETE FROM` for properties / contacts / groups. There's no soft-delete column. Photos are sent to Drive trash (recoverable for 30 days from Drive's UI). If a destructive admin action gets through, the snapshot is the canonical recovery path.
+
+### Disaster preparedness — what to test before launch
+
+Once a quarter, run a **real recovery drill**: pick yesterday's backup, restore into a throwaway Supabase project, point a local dev backend at it, verify the data + photos are intact. If the drill ever fails, our backup story is broken and we find out *before* we need it.
+
+Also worth: download a `pg_dump` from Supabase manually before any major migration push or code change with destructive potential. Backups don't fail you when you have multiple of them.
 
 ---
 
