@@ -1,0 +1,100 @@
+name: Deploy backend (Cloud Run)
+
+# Triggered on every push to main that touches backend or this workflow,
+# plus a manual trigger from the Actions tab. Until the repo variable
+# DEPLOY_ENABLED is set to 'true', the deploy job runs as a no-op so
+# pushes don't fail before the GCP project is provisioned.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+concurrency:
+  # Don't kill an in-flight prod deploy with a newer one — let it finish.
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # required for Workload Identity Federation
+    env:
+      REGION: ${{ vars.GCP_REGION || 'me-west1' }}
+      ARTIFACT_REPO: ${{ vars.GCP_ARTIFACT_REPO || 'cloud-run-deploy' }}
+      SERVICE: ${{ vars.GCP_RUN_SERVICE || 'classic-jerusalem-realty-api' }}
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure docker for Artifact Registry
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      - name: Build and push image
+        run: |
+          IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}/${SERVICE}"
+          IMAGE_SHA="${IMAGE_BASE}:${{ github.sha }}"
+          IMAGE_LATEST="${IMAGE_BASE}:latest"
+          docker build -t "$IMAGE_SHA" -t "$IMAGE_LATEST" backend/
+          docker push "$IMAGE_SHA"
+          docker push "$IMAGE_LATEST"
+          echo "IMAGE=$IMAGE_SHA" >> "$GITHUB_ENV"
+
+      - name: Run database migrations
+        # Reuses the freshly-built image so alembic + the project code stay
+        # in lockstep with what's about to deploy. DATABASE_URL is fetched
+        # from Secret Manager at job time — never written to disk.
+        run: |
+          DATABASE_URL=$(gcloud secrets versions access latest \
+            --secret=database-url \
+            --project="$PROJECT_ID")
+          docker run --rm \
+            -e DATABASE_URL="$DATABASE_URL" \
+            "$IMAGE" \
+            alembic upgrade head
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --platform managed \
+            --allow-unauthenticated \
+            --min-instances 0 \
+            --max-instances 4 \
+            --memory 512Mi \
+            --cpu 1 \
+            --port 8000 \
+            --set-env-vars "ENVIRONMENT=production,CORS_ORIGINS=[\"https://admin.classicjerusalem.com\"],GOOGLE_OAUTH_REDIRECT_URI=https://api.classicjerusalem.com/auth/google/callback,ADMIN_REDIRECT_URI=https://admin.classicjerusalem.com/settings" \
+            --set-secrets "ENCRYPTION_KEY=encryption-key:latest,GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest,DATABASE_URL=database-url:latest"
+
+      - name: Smoke-test the new revision
+        run: |
+          URL=$(gcloud run services describe "$SERVICE" \
+            --region "$REGION" \
+            --format='value(status.url)')
+          for attempt in 1 2 3 4 5; do
+            if curl -fsS "${URL}/health" >/dev/null; then
+              echo "health OK at $URL"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "health check failed after retries" >&2
+          exit 1

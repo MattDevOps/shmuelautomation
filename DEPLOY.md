@@ -85,6 +85,98 @@ gcloud run domain-mappings create \
 
 It prints CNAME records to add. Add them in the Cloudflare DNS for `classicjerusalem.com`. SSL is provisioned automatically; takes ~10 minutes.
 
+### 1.6 Continuous deployment via GitHub Actions (one-time setup)
+
+Once the manual deploy in 1.4 is healthy, wire up `main → prod` so future
+pushes deploy automatically. The workflow at
+`.github/workflows/deploy-backend.yml` is already in the repo — what's
+left is the one-time GCP-side plumbing.
+
+**Auth: Workload Identity Federation, no JSON keys.** GitHub authenticates
+to GCP via short-lived tokens minted from your repo identity. No secret
+JSON sits in repo settings.
+
+```bash
+# Replace these with the real values:
+PROJECT_ID="classic-jerusalem-realty-XXXXX"
+REPO="MattDevOps/shmuelautomation"
+SA_NAME="github-deploy"
+POOL="github-pool"
+PROVIDER="github-provider"
+
+# 1. Service account that GitHub will impersonate.
+gcloud iam service-accounts create "$SA_NAME" \
+  --display-name="GitHub Actions deployer"
+
+SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+
+# 2. Roles the deployer needs.
+for ROLE in roles/run.developer \
+            roles/iam.serviceAccountUser \
+            roles/artifactregistry.writer \
+            roles/secretmanager.secretAccessor; do
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:${SA_EMAIL}" --role="$ROLE"
+done
+
+# 3. WIF pool + provider (GitHub OIDC).
+gcloud iam workload-identity-pools create "$POOL" \
+  --location=global --display-name="GitHub Actions"
+
+gcloud iam workload-identity-pools providers create-oidc "$PROVIDER" \
+  --location=global \
+  --workload-identity-pool="$POOL" \
+  --display-name="GitHub OIDC" \
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
+  --attribute-condition="attribute.repository=='${REPO}'" \
+  --issuer-uri="https://token.actions.githubusercontent.com"
+
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
+POOL_ID="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}"
+
+# 4. Allow the GitHub repo to impersonate the service account.
+gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="principalSet://iam.googleapis.com/${POOL_ID}/attribute.repository/${REPO}"
+
+# 5. Print what you'll paste into GitHub.
+echo "GCP_PROJECT_ID=${PROJECT_ID}"
+echo "GCP_SERVICE_ACCOUNT=${SA_EMAIL}"
+echo "GCP_WIF_PROVIDER=${POOL_ID}/providers/${PROVIDER}"
+
+# 6. Artifact Registry repo for images (if you haven't yet).
+gcloud artifacts repositories create cloud-run-deploy \
+  --repository-format=docker \
+  --location=me-west1 \
+  --description="Cloud Run images for the realty backend"
+```
+
+**Add these to GitHub** at <https://github.com/MattDevOps/shmuelautomation/settings/secrets/actions>:
+
+| Type | Name | Value |
+| --- | --- | --- |
+| Secret | `GCP_PROJECT_ID` | output of step 5 |
+| Secret | `GCP_SERVICE_ACCOUNT` | output of step 5 |
+| Secret | `GCP_WIF_PROVIDER` | output of step 5 |
+| Variable | `DEPLOY_ENABLED` | `true` |
+| Variable (optional) | `GCP_REGION` | defaults to `me-west1` |
+| Variable (optional) | `GCP_ARTIFACT_REPO` | defaults to `cloud-run-deploy` |
+| Variable (optional) | `GCP_RUN_SERVICE` | defaults to `classic-jerusalem-realty-api` |
+
+The workflow is **gated on `DEPLOY_ENABLED == 'true'`** — until that
+variable is set, every push to main is a no-op for deploy. That way you
+can land the workflow file in main today without anything failing, and
+flip the switch once GCP is fully provisioned.
+
+After the variable is set, every push to `main` that touches `backend/`:
+1. Builds the image and tags it `:<commit-sha>` + `:latest`.
+2. Pushes to Artifact Registry.
+3. Runs `alembic upgrade head` against prod (DATABASE_URL pulled from Secret Manager at job time, never written to disk).
+4. Deploys the new revision to Cloud Run with the same env+secrets as the manual deploy in 1.4.
+5. Hits `/health` to confirm the new revision answers.
+
+Manual rollback is unchanged — Cloud Run keeps prior revisions; see Section 5 below.
+
 ---
 
 ## 2. Admin SPA → Cloudflare Pages

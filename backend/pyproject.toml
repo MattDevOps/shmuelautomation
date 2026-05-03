@@ -27,6 +27,8 @@ dev = [
     "aiosqlite>=0.20",
     "pytest-cov>=6.0",
     "mutmut>=3.2",
+    # used by tests/test_deploy_workflow.py to parse the GH Actions workflow
+    "pyyaml>=6.0",
 ]
 
 [build-system]
