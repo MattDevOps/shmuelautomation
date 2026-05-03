@@ -22,6 +22,7 @@ from shmuel_backend.models import (
     Property,
 )
 from shmuel_backend.properties import router as properties_router
+from shmuel_backend.property_notes import router as property_notes_router
 from shmuel_backend.public import router as public_router
 from shmuel_backend.queue_routes import compose_router
 from shmuel_backend.queue_routes import router as queue_router
@@ -43,6 +44,7 @@ app.add_middleware(
 )
 
 app.include_router(properties_router)
+app.include_router(property_notes_router)
 app.include_router(photos_router)
 app.include_router(oauth_router)
 app.include_router(public_router)

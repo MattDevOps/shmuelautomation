@@ -6,6 +6,7 @@ import type {
   Property,
   PropertyCreate,
   PropertyListFilters,
+  PropertyNote,
   PropertyStatus,
   PropertyUpdate,
   Yad2ImportPreview,
@@ -93,5 +94,30 @@ export function bulkDeleteProperties(ids: string[]): Promise<BulkResult> {
   return request<BulkResult>('/properties/bulk/delete', {
     method: 'POST',
     body: JSON.stringify({ ids }),
+  })
+}
+
+export function listPropertyNotes(
+  propertyId: string,
+): Promise<PropertyNote[]> {
+  return request<PropertyNote[]>(`/properties/${propertyId}/notes`)
+}
+
+export function createPropertyNote(
+  propertyId: string,
+  body: string,
+): Promise<PropertyNote> {
+  return request<PropertyNote>(`/properties/${propertyId}/notes`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  })
+}
+
+export function deletePropertyNote(
+  propertyId: string,
+  noteId: string,
+): Promise<void> {
+  return request<void>(`/properties/${propertyId}/notes/${noteId}`, {
+    method: 'DELETE',
   })
 }

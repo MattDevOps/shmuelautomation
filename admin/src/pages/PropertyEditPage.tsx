@@ -7,6 +7,7 @@ import {
 } from '../api/properties'
 import { EMPTY_PROPERTY, type PropertyCreate } from '../api/types'
 import MatchingContacts from '../components/MatchingContacts'
+import NoteTimeline from '../components/NoteTimeline'
 import PhotoSection from '../components/PhotoSection'
 import PropertyForm from '../components/PropertyForm'
 import ShareModal from '../components/ShareModal'
@@ -107,6 +108,7 @@ export default function PropertyEditPage() {
         onCancel={() => navigate('/')}
         currentId={isCreate ? undefined : id}
       />
+      {!isCreate && id && <NoteTimeline propertyId={id} />}
       {!isCreate && id && <MatchingContacts propertyId={id} />}
       {!isCreate && id && <PhotoSection propertyId={id} />}
       {sharing && id && (

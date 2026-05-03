@@ -1281,6 +1281,94 @@ label.field > .label-text,
   color: var(--clay);
 }
 
+/* ───── Property timeline (running log of dated entries) ───────── */
+
+.note-timeline {
+  margin-top: var(--space-2xl);
+  padding-top: var(--space-xl);
+  border-top: 1px solid var(--edge);
+}
+
+.note-timeline > h2 {
+  margin-bottom: var(--space-2xs);
+}
+
+.note-form {
+  margin: var(--space-md) 0 var(--space-lg);
+}
+
+.note-form textarea {
+  width: 100%;
+  font: inherit;
+  padding: var(--space-xs) var(--space-sm);
+  border: 1px solid var(--edge-strong);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  resize: vertical;
+}
+
+.note-form textarea:focus {
+  outline: none;
+  border-color: var(--clay);
+}
+
+.note-form .form-actions {
+  margin-top: var(--space-xs);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.note-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-left: 1px solid var(--edge);
+  padding-left: var(--space-lg);
+}
+
+.note-row {
+  position: relative;
+  padding: var(--space-sm) 0 var(--space-md);
+}
+
+.note-row + .note-row {
+  border-top: 1px dashed var(--edge);
+}
+
+/* Dot marking each entry on the timeline rail. */
+.note-row::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--space-lg) - 4px);
+  top: var(--space-md);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--clay-deep);
+}
+
+.note-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: var(--t-xs);
+  color: var(--ink-soft);
+  margin-bottom: var(--space-2xs);
+}
+
+.note-meta time {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.note-body {
+  margin: 0;
+  font-size: var(--t-sm);
+  white-space: pre-wrap;
+  max-width: 70ch;
+}
+
 /* ───── /system page status cards ──────────────────────────────── */
 
 .system-grid {

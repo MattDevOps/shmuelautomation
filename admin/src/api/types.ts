@@ -186,6 +186,13 @@ export interface BulkResult {
   not_found: string[]
 }
 
+export interface PropertyNote {
+  id: string
+  property_id: string
+  body: string
+  created_at: string
+}
+
 export interface ContactImportRow {
   row_number: number
   name: string

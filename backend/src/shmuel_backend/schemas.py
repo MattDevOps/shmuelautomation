@@ -215,6 +215,19 @@ class BulkDeleteRequest(BaseModel):
     ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
 
 
+class PropertyNoteCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=5000)
+
+
+class PropertyNoteRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    property_id: uuid.UUID
+    body: str
+    created_at: datetime
+
+
 class BulkResult(BaseModel):
     """Same shape for both bulk-status and bulk-delete: how many rows we
     actually touched, and which ids we couldn't find. The frontend uses

@@ -75,6 +75,25 @@ class Property(Base):
     __table_args__ = (Index("ix_properties_type_status", "type", "status"),)
 
 
+class PropertyNote(Base):
+    """A dated free-form entry in a property's timeline.
+
+    Distinct from `Property.notes` (which is a single static text blob).
+    These are sequenced events: "called landlord — available end of
+    month", "showing 4pm with Cohens", "price reduced to 3.1M". Newest
+    first in the UI; deleting cascades from the parent property.
+    """
+
+    __tablename__ = "property_notes"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    property_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("properties.id", ondelete="CASCADE"), index=True
+    )
+    body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), index=True)
+
+
 class CloudConnection(Base):
     """A persistent OAuth connection to a cloud-storage provider.
 
