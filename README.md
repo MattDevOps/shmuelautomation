@@ -5,10 +5,12 @@
 Monorepo for **Classic Jerusalem Realty**'s property CMS + automation platform. Single user (Shmuel, a Jerusalem real estate broker); WordPress public site at **classicjerusalem.com** consumes the backend's public read API.
 
 ```
-client/      # client-facing scope/proposal/checklist docs + Shmuel synopsis
-backend/     # FastAPI service (source of truth for properties, CRM, automation)
-admin/       # React admin SPA (Shmuel's daily-driver dashboard)
-notes.md     # internal project notes
+client/             # client-facing scope/proposal/checklist docs + Shmuel synopsis
+client/user-guide.md  # Shmuel's day-to-day how-to (plain-English)
+backend/            # FastAPI service (source of truth for properties, CRM, automation)
+admin/              # React admin SPA (Shmuel's daily-driver dashboard)
+wordpress-plugin/   # installable plugin for classicjerusalem.com (build.sh → .zip)
+notes.md            # internal project notes
 ```
 
 ## What's built
