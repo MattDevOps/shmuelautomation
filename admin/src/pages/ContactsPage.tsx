@@ -71,6 +71,9 @@ export default function ContactsPage() {
           </p>
         </div>
         <div className="header-actions">
+          <Link className="btn" to="/contacts/import">
+            Import CSV
+          </Link>
           <a className="btn" href={exportContactsUrl(activeSegments)}>
             {activeSegments.length > 0
               ? `Export (${activeSegments.join(', ')})`

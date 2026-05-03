@@ -1,5 +1,6 @@
 import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom'
 import ContactEditPage from './pages/ContactEditPage'
+import ContactImportPage from './pages/ContactImportPage'
 import ContactsPage from './pages/ContactsPage'
 import GroupsPage from './pages/GroupsPage'
 import ImportYad2Page from './pages/ImportYad2Page'
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="/queue" element={<QueuePage />} />
           <Route path="/groups" element={<GroupsPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
+          <Route path="/contacts/import" element={<ContactImportPage />} />
           <Route path="/contacts/new" element={<ContactEditPage />} />
           <Route path="/contacts/:id" element={<ContactEditPage />} />
           <Route path="/system" element={<SystemPage />} />

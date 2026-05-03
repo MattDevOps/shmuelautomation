@@ -1019,6 +1019,60 @@ label.field > .label-text,
   color: var(--clay);
 }
 
+/* ───── CSV import preview ─────────────────────────────────────── */
+
+.import-preview {
+  margin-top: var(--space-2xl);
+}
+
+.import-summary {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-lg);
+  margin: var(--space-md) 0;
+  font-size: var(--t-sm);
+}
+
+.import-summary strong {
+  font-family: var(--font-display);
+  font-size: var(--t-xl);
+  font-weight: 500;
+  margin-right: var(--space-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.import-summary .num-create  { color: var(--success); }
+.import-summary .num-dup     { color: var(--ink-soft); }
+.import-summary .num-err     { color: var(--alert); }
+
+[class^='status-pill-'] {
+  display: inline-block;
+  padding: 2px var(--space-xs);
+  border-radius: 999px;
+  font-size: var(--t-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.status-pill-create,
+.status-pill-created {
+  background: color-mix(in oklab, var(--success) 12%, var(--paper));
+  color: var(--success);
+}
+
+.status-pill-duplicate {
+  background: var(--paper-deep);
+  color: var(--ink-soft);
+}
+
+.status-pill-error {
+  background: color-mix(in oklab, var(--alert) 12%, var(--paper));
+  color: var(--alert);
+}
+
 /* ───── Matching contacts panel on the property edit page ──────── */
 
 .matching-contacts {

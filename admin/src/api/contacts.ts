@@ -2,6 +2,7 @@ import { API_URL, request } from './client'
 import type {
   Contact,
   ContactCreate,
+  ContactImportResult,
   ContactListFilters,
   ContactUpdate,
 } from './types'
@@ -51,6 +52,18 @@ export function deleteContact(id: string): Promise<void> {
 
 export function listSegments(): Promise<string[]> {
   return request<string[]>('/contacts/segments')
+}
+
+export function importContactsCSV(
+  file: File,
+  dryRun: boolean,
+): Promise<ContactImportResult> {
+  const form = new FormData()
+  form.append('file', file)
+  return request<ContactImportResult>(
+    `/contacts/import?dry_run=${dryRun ? 'true' : 'false'}`,
+    { method: 'POST', body: form },
+  )
 }
 
 export function exportContactsUrl(segments: string[] = []): string {

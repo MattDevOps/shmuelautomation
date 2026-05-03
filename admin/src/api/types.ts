@@ -171,6 +171,30 @@ export interface ContactMatch {
   match_reasons: string[]
 }
 
+export interface ContactImportRow {
+  row_number: number
+  name: string
+  phone: string | null
+  email: string | null
+  language: string | null
+  segments: string[]
+  notes: string | null
+  status: 'create' | 'duplicate' | 'error' | 'created'
+  detail: string | null
+}
+
+export interface ContactImportSummary {
+  total_rows: number
+  would_create: number
+  would_skip_duplicates: number
+  errors: number
+}
+
+export interface ContactImportResult {
+  summary: ContactImportSummary
+  rows: ContactImportRow[]
+}
+
 export interface SystemStatus {
   environment: string
   db_ok: boolean

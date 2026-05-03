@@ -127,14 +127,15 @@ def test_export_csv_format(client: TestClient) -> None:
 
     text = r.content.decode("utf-8-sig")  # strip BOM
     rows = list(csv.reader(io.StringIO(text)))
-    assert rows[0] == ["Phone", "Name", "Email", "Language", "Notes"]
+    assert rows[0] == ["Phone", "Name", "Email", "Language", "Segments", "Notes"]
     assert len(rows) == 3  # header + two contacts
 
+    # Indexes: 0=Phone, 1=Name, 2=Email, 3=Language, 4=Segments, 5=Notes
     by_name = {r[1]: r for r in rows[1:]}
     assert by_name["Yossi"][2] == "y@example.com"
-    assert "\n" not in by_name["Yossi"][4], "Newlines must be flattened"
+    assert "\n" not in by_name["Yossi"][5], "Newlines must be flattened"
     assert by_name["Hebrew name דני"][0] == "+972511111111"
-    assert "quotes" in by_name["Hebrew name דני"][4]
+    assert "quotes" in by_name["Hebrew name דני"][5]
 
 
 def test_export_csv_starts_with_utf8_bom(client: TestClient) -> None:
