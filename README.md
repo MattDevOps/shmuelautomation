@@ -105,39 +105,19 @@ The backend exposes a small public, unauthenticated read API under `/public/*` t
 | `GET /public/properties?type=rent&neighborhood=Baka&limit=20&offset=0` | `{ items: [...], total, limit, offset }` |
 | `GET /public/properties/{id}` | A single available property |
 
-Both responses include `Cache-Control: public, max-age=60`, so a WordPress page caching layer (or a transient stored in `wp_options`) can safely keep results for a minute.
+Both responses include `Cache-Control: public, max-age=60`, and the WordPress plugin holds the parsed result in a 60s transient on top, so the backend gets at most one request per minute per shortcode variant.
 
-Minimal PHP shortcode for `wp-content/themes/.../functions.php`:
+The repo ships an installable WordPress plugin in `wordpress-plugin/`:
 
-```php
-add_shortcode('classic_listings', function ($atts) {
-  $atts = shortcode_atts(['type' => 'rent', 'limit' => 12], $atts);
-  $cache_key = 'classic_listings_' . md5(serialize($atts));
-  $cached = get_transient($cache_key);
-  if ($cached !== false) return $cached;
-
-  $url = 'https://api.classicjerusalem.com/public/properties?'
-       . http_build_query(['type' => $atts['type'], 'limit' => $atts['limit']]);
-  $resp = wp_remote_get($url, ['timeout' => 5]);
-  if (is_wp_error($resp)) return '';
-  $body = json_decode(wp_remote_retrieve_body($resp), true);
-
-  ob_start();
-  foreach ($body['items'] as $p) {
-    $price = number_format((float) $p['price'], 0);
-    $hood = esc_html($p['neighborhood'] ?? '');
-    echo "<article class='listing'>";
-    echo "<h3>{$hood}</h3>";
-    echo "<p>{$p['currency']} {$price}</p>";
-    echo "</article>";
-  }
-  $html = ob_get_clean();
-  set_transient($cache_key, $html, 60);
-  return $html;
-});
+```bash
+bash wordpress-plugin/build.sh
+# → wordpress-plugin/dist/classic-jerusalem-listings-1.0.0.zip
 ```
 
-Use `[classic_listings type="rent" limit="12"]` in any WordPress page or post.
+In WordPress: Plugins → Add New → Upload Plugin → choose the .zip → Activate.
+Then Settings → Classic Listings → set the API base URL.
+
+Use `[classic_listings type="rent" limit="12"]` in any page or post. Available shortcode options: `type` (`rent` or `sale`), `limit`, `neighborhood`.
 
 ## Deployment (later)
 
