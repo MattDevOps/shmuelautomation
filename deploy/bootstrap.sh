@@ -51,9 +51,16 @@ warn()  { printf '  \033[33m!\033[0m %s\n' "$*"; }
 
 # ─── Auto-load local .env so we can borrow OAuth client / encryption key
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Selectively pull only OAuth client + encryption key from backend/.env.
+# A blanket `source` would also clobber DATABASE_URL with the dev sqlite
+# value and break CORS_ORIGINS parsing (bash strips the JSON quotes).
 if [[ -f "$REPO_ROOT/backend/.env" ]]; then
-  # shellcheck disable=SC1091
-  set -a; source "$REPO_ROOT/backend/.env"; set +a
+  for var in GOOGLE_OAUTH_CLIENT_ID GOOGLE_OAUTH_CLIENT_SECRET ENCRYPTION_KEY; do
+    if [[ -z "${!var:-}" ]]; then
+      val=$(grep -E "^${var}=" "$REPO_ROOT/backend/.env" | head -1 | cut -d'=' -f2-)
+      [[ -n "$val" ]] && export "$var=$val"
+    fi
+  done
 fi
 
 # ─── Validation ──────────────────────────────────────────────────────
@@ -128,6 +135,17 @@ push_secret encryption-key             "$ENCRYPTION_KEY"
 push_secret database-url               "$DATABASE_URL"
 push_secret google-oauth-client-id     "$GOOGLE_OAUTH_CLIENT_ID"
 push_secret google-oauth-client-secret "$GOOGLE_OAUTH_CLIENT_SECRET"
+
+# Grant the Cloud Run runtime SA (the default compute SA) read access to
+# the secrets it'll mount as env vars at request time. Without this,
+# step 5 fails with "Permission denied on secret" during revision creation.
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
+RUNTIME_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${RUNTIME_SA}" \
+  --role="roles/secretmanager.secretAccessor" \
+  --condition=None >/dev/null
+ok "secretAccessor granted to Cloud Run runtime SA"
 
 # ─── 4. Migrations ───────────────────────────────────────────────────
 step "4/8  Run alembic migrations against prod"
