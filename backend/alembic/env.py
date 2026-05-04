@@ -61,10 +61,19 @@ async def run_async_migrations() -> None:
 
     """
 
+    # Disable asyncpg's prepared-statement cache when running through
+    # Supabase's transaction pooler (pgbouncer in transaction mode); the
+    # pooler may hand us a connection where another session already
+    # prepared the auto-named statement we'd reuse.
+    extra_kwargs: dict = {}
+    if "asyncpg" in settings.database_url:
+        extra_kwargs = {"connect_args": {"statement_cache_size": 0}}
+
     connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        **extra_kwargs,
     )
 
     async with connectable.connect() as connection:
