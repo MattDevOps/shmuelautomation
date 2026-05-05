@@ -59,8 +59,10 @@ export default function ImportYad2Page() {
         <div>
           <h1>Import from Yad2</h1>
           <p className="page-subhead">
-            Paste a Yad2 listing URL — we&rsquo;ll pull what we can from the
-            page. You review and fill in the rest before saving.
+            Paste a Yad2 listing URL — we&rsquo;ll save the link to the
+            property and try to pre-fill fields from the page. Yad2 blocks
+            most automated reads, so usually you&rsquo;ll need to type the
+            details in manually.
           </p>
         </div>
       </header>

@@ -252,3 +252,26 @@ Safe starting budget to tell him: **~$150/mo**, grows with usage.
 
 Project memory saved at:
 `/home/matt/.claude/projects/-home-matt-git-shmuelautomation/memory/project_shmuel_realty.md`
+
+---
+
+## Open follow-ups
+
+### Yad2 import — evaluate webot's listing aggregator (Phase 2 trigger)
+
+**Decided 2026-05-05** that Yad2 actively bot-blocks our backend.
+ShieldSquare/Datadome serves a captcha to any datacenter IP and even
+to residential IPs without proper browser fingerprints. The
+`/properties/import/yad2` endpoint already returns a graceful "fill
+in manually" warning and the admin UI tells Shmuel that's the norm.
+
+Webot.co.il aggregates Yad2/Madlan/FB/Janglo listings in their real
+estate vertical. Shmuel already pays for webot for WhatsApp bulk
+sending. **When we kick off webot integration for auto-posting
+(Phase 2), also evaluate whether their listing aggregator exposes an
+API we can pull from instead of scraping Yad2 directly.** That would
+give us structured imports without paying for residential proxies or
+maintaining a stealth headless setup.
+
+Trigger to revisit: when starting WhatsApp auto-posting work. Don't
+scope it earlier — Yad2 manual entry works fine in the meantime.
