@@ -3,12 +3,27 @@
 Hi Shmuel — this is the everything-you-need-to-know-to-run-it document.
 Read it once end-to-end, then come back to specific sections as needed.
 
-The dashboard lives at **admin.classicjerusalem.com** (or whatever URL
-Matt sent you). Open it in any browser. There's no app to install.
+The dashboard lives at **admin.classicjerusalem.com**. Open it in any
+browser. There's no app to install.
 
 > **Where to find this guide later:** bookmark it, or open the dashboard
 > and look for "Help" in the corner. If something here is wrong or
 > confusing, message Matt — the guide gets updated.
+
+---
+
+## 0. Logging in
+
+The dashboard is gated — only your email and Matt's can get in. Login
+takes 30 seconds:
+
+1. Visit **admin.classicjerusalem.com**.
+2. Cloudflare asks for your email — enter `classicjerusaleminfo@gmail.com`.
+3. Cloudflare emails you a **6-digit code** (check your inbox; spam
+   if it's slow). Type it in.
+4. Done. The login lasts 24 hours; after that, repeat.
+
+That's it. No password to remember — the email-PIN is the security.
 
 ---
 
@@ -102,11 +117,23 @@ photos right away (next section).
 
 1. **Import from Yad2** in the top nav.
 2. Paste the Yad2 URL. Click **Fetch**.
-3. The form fills in for you — neighborhood, rooms, size, price, photos.
-4. Edit anything that's off, then click **Create**.
+3. *If* Yad2 lets us read the page (rare these days — they actively
+   block automated readers), the form pre-fills with neighborhood,
+   rooms, size, price, photos. Edit anything that's off and click
+   **Create**.
+4. **Most of the time** Yad2 returns a captcha or 403 instead of the
+   listing data. The page tells you so, the form stays blank, and
+   you fill it in manually. The Yad2 URL still gets saved on the
+   property so you (and prospects) can click back to the original
+   listing later.
 
-If the Yad2 page is unreachable (sometimes their servers are slow),
-the form just stays blank and you fall back to the manual path.
+This isn't a bug — it's how Yad2 has worked for years. There's a
+service called **webot.co.il** that aggregates Yad2/Madlan/FB
+listings; if you ever sign up for them, we can wire their API in
+to skip the manual-entry step. Don't sign up just for that — try
+the current manual workflow first and decide if it's worth the
+subscription. For now, treat Yad2 import as "saves the URL + tries
+to fill what it can."
 
 ### 3.3 Adding photos to a property
 
