@@ -26,7 +26,7 @@ jobs:
       contents: read
       id-token: write  # required for Workload Identity Federation
     env:
-      REGION: ${{ vars.GCP_REGION || 'me-west1' }}
+      REGION: ${{ vars.GCP_REGION || 'europe-west1' }}
       ARTIFACT_REPO: ${{ vars.GCP_ARTIFACT_REPO || 'cloud-run-deploy' }}
       SERVICE: ${{ vars.GCP_RUN_SERVICE || 'classic-jerusalem-realty-api' }}
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}

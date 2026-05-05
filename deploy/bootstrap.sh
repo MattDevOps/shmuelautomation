@@ -27,7 +27,7 @@
 #   ENCRYPTION_KEY            (auto-generated via Fernet if missing)
 #
 # Optional defaults:
-#   REGION                    me-west1
+#   REGION                    europe-west1  (me-west1 doesn't support Cloud Run domain mappings)
 #   ARTIFACT_REPO             cloud-run-deploy
 #   SERVICE                   classic-jerusalem-realty-api
 #   API_DOMAIN                api.classicjerusalem.com
@@ -35,7 +35,7 @@
 set -euo pipefail
 
 # ─── Defaults ────────────────────────────────────────────────────────
-REGION="${REGION:-me-west1}"
+REGION="${REGION:-europe-west1}"
 ARTIFACT_REPO="${ARTIFACT_REPO:-cloud-run-deploy}"
 SERVICE="${SERVICE:-classic-jerusalem-realty-api}"
 API_DOMAIN="${API_DOMAIN:-api.classicjerusalem.com}"
