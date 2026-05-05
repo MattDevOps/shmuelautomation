@@ -80,7 +80,7 @@ echo -n "VALUE_FROM_SUPABASE"      | gcloud secrets create database-url --data-f
 cd backend
 gcloud run deploy classic-jerusalem-realty-api \
   --source . \
-  --region me-west1 \
+  --region europe-west1 \
   --platform managed \
   --allow-unauthenticated \
   --min-instances 0 \
@@ -89,8 +89,10 @@ gcloud run deploy classic-jerusalem-realty-api \
   --cpu 1 \
   --port 8000 \
   --set-env-vars "ENVIRONMENT=production,CORS_ORIGINS=[\"https://admin.classicjerusalem.com\"],GOOGLE_OAUTH_REDIRECT_URI=https://api.classicjerusalem.com/auth/google/callback,ADMIN_REDIRECT_URI=https://admin.classicjerusalem.com/settings" \
-  --set-secrets "ENCRYPTION_KEY=encryption-key:latest,GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest,DATABASE_URL=database-url:latest"
+  --set-secrets "ENCRYPTION_KEY=encryption-key:latest,GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest,DATABASE_URL=database-url:latest,BACKEND_API_KEY=backend-api-key:latest"
 ```
+
+> If this is the very first deploy and you haven't yet created `backend-api-key` in Secret Manager (§1.6 covers it), drop that one entry from `--set-secrets` and re-run after creating it. The middleware no-ops when the env var is empty, so the service starts fine either way.
 
 This builds the Dockerfile in Cloud Build, pushes to Artifact Registry, and deploys. First deploy takes ~3–4 minutes; subsequent ones are ~1 minute.
 
@@ -101,18 +103,69 @@ curl https://<that-url>/health
 # {"status":"ok","environment":"production","db":"ok"}
 ```
 
-### 1.5 Map the custom domain
+### 1.5 Custom domain via a Cloudflare Worker proxy
+
+We **don't** use `gcloud run domain-mappings` for `api.classicjerusalem.com`. Two reasons:
+
+1. Cloud Run domain mapping isn't supported in `me-west1` (Tel Aviv) at all, and we hit a stuck "CertificatePending" state in `europe-west1` that didn't resolve even after recreating the mapping.
+2. The Worker pattern lets us bolt on the `X-API-Key` gate (§1.7) at the edge without backend changes.
+
+**The Worker (`api-proxy`):**
+
+1. Cloudflare → **Workers & Pages** → **Create application** → **Create Worker** → name `api-proxy` → deploy with the default Hello World.
+2. **Edit code** → replace with:
+
+   ```javascript
+   export default {
+     async fetch(request, env) {
+       const url = new URL(request.url);
+       const publicPaths = ['/public/', '/auth/google/', '/health'];
+       const isPublic = publicPaths.some(p => url.pathname.startsWith(p));
+       const isPreflight = request.method === 'OPTIONS';
+
+       if (!isPublic && !isPreflight) {
+         const provided = request.headers.get('x-api-key');
+         if (provided !== env.API_KEY) {
+           return new Response('Unauthorized', { status: 401 });
+         }
+       }
+
+       url.hostname = 'classic-jerusalem-realty-api-PROJECT_NUMBER.europe-west1.run.app';
+       return fetch(new Request(url.toString(), request));
+     }
+   };
+   ```
+
+   Replace `PROJECT_NUMBER` with the actual one (find it via `gcloud projects describe PROJECT_ID --format='value(projectNumber)'`).
+
+3. **Settings → Variables and Secrets → + Add → Secret**:
+   - Name: `API_KEY`
+   - Value: a fresh random key. Generate with:
+     ```bash
+     python3 -c "import secrets; print('cjr_' + secrets.token_urlsafe(32))"
+     ```
+   - Mirror this same value into §1.7 (Cloud Run secret) and §2 (Pages env var).
+4. **Settings → Domains & Routes → + Add → Custom domain**:
+   - `api.classicjerusalem.com`
+   - Cloudflare auto-creates the DNS record and issues SSL within ~30 sec.
+
+### 1.6 Backend X-API-Key check (defense in depth)
+
+The Worker gates `api.classicjerusalem.com`, but the underlying `*.run.app` URL is publicly reachable. Mirror the same check in FastAPI so direct hits to the origin also require the key.
 
 ```bash
-gcloud run domain-mappings create \
-  --service classic-jerusalem-realty-api \
-  --domain api.classicjerusalem.com \
-  --region me-west1
+# Use the same value generated in §1.5.
+echo -n "cjr_..." | gcloud secrets create backend-api-key --data-file=-
+
+# Update the running service:
+gcloud run services update classic-jerusalem-realty-api \
+  --region europe-west1 \
+  --update-secrets "BACKEND_API_KEY=backend-api-key:latest"
 ```
 
-It prints CNAME records to add. Add them in the Cloudflare DNS for `classicjerusalem.com`. SSL is provisioned automatically; takes ~10 minutes.
+The middleware lives in `backend/src/shmuel_backend/main.py` and bypasses `/public/`, `/auth/google/`, `/health`, `/healthz`, and OPTIONS preflights.
 
-### 1.6 Continuous deployment via GitHub Actions (one-time setup)
+### 1.7 Continuous deployment via GitHub Actions (one-time setup)
 
 Once the manual deploy in 1.4 is healthy, wire up `main → prod` so future
 pushes deploy automatically. The workflow at
@@ -174,7 +227,7 @@ echo "GCP_WIF_PROVIDER=${POOL_ID}/providers/${PROVIDER}"
 # 6. Artifact Registry repo for images (if you haven't yet).
 gcloud artifacts repositories create cloud-run-deploy \
   --repository-format=docker \
-  --location=me-west1 \
+  --location=europe-west1 \
   --description="Cloud Run images for the realty backend"
 ```
 
@@ -186,7 +239,7 @@ gcloud artifacts repositories create cloud-run-deploy \
 | Secret | `GCP_SERVICE_ACCOUNT` | output of step 5 |
 | Secret | `GCP_WIF_PROVIDER` | output of step 5 |
 | Variable | `DEPLOY_ENABLED` | `true` |
-| Variable (optional) | `GCP_REGION` | defaults to `me-west1` |
+| Variable (optional) | `GCP_REGION` | defaults to `europe-west1` |
 | Variable (optional) | `GCP_ARTIFACT_REPO` | defaults to `cloud-run-deploy` |
 | Variable (optional) | `GCP_RUN_SERVICE` | defaults to `classic-jerusalem-realty-api` |
 
@@ -217,11 +270,34 @@ The repo already ships `admin/public/_redirects` (SPA fallback so client-side ro
    - **Build command**: `npm run build`
    - **Build output directory**: `dist`
    - **Root directory (advanced)**: `admin`
-   - **Environment variables (production)**: `VITE_API_URL=https://api.classicjerusalem.com`
+   - **Environment variables (production)**:
+     - `VITE_API_URL=https://api.classicjerusalem.com`
+     - `VITE_API_KEY=<the same key generated in §1.5>` — set this as a **Secret** type so it's encrypted at rest in the dashboard. Note: it still gets baked into the JS bundle at build time; the actual confidentiality comes from the Cloudflare Access gate (§2.5) blocking the bundle from anyone outside the allow-list.
 3. **Save and Deploy** — first build runs (~30 sec).
 4. **Custom domain**: project → Custom domains → **Set up a custom domain** → `admin.classicjerusalem.com`. If the DNS zone is on Cloudflare, the CNAME is added automatically; otherwise it prints the record to add at the registrar.
 
 Subsequent pushes to `main` auto-deploy; PRs get preview URLs.
+
+---
+
+## 2.5 Gate the admin SPA behind Cloudflare Access
+
+The admin tool has no built-in login. We rely on Cloudflare Access (Zero Trust) to gate the URL behind an email-PIN check.
+
+1. Cloudflare → **Zero Trust** dashboard. First-time setup picks a team name (e.g. `classicjerusalem`); pick the **Free** plan (covers up to 50 users).
+2. **Access → Applications → Add an application → Self-hosted**:
+   - Application name: `Classic Jerusalem Admin`
+   - Subdomain: `admin`, Domain: `classicjerusalem.com`, Path: blank
+   - Identity providers: **One-time PIN** (default) — sends a 6-digit code to the email address the user enters
+3. **Access policies → Add a policy**:
+   - Name: `Allowed users`
+   - Action: `Allow`
+   - Include → Selector: `Emails`, Values: each allowed email on its own row (e.g. `mattstermh@hotmail.com`, `classicjerusaleminfo@gmail.com`)
+4. **Save / Add application**.
+
+Verify with `curl -sI https://admin.classicjerusalem.com` — should return `302` to `classicjerusalem.cloudflareaccess.com/cdn-cgi/access/login/...`. That's the gate working.
+
+> **Don't gate the API (`api.classicjerusalem.com`) the same way.** We tried; the SPA's cross-subdomain XHR can't follow Access's redirect chain (CORS-blocked). The Worker `X-API-Key` check (§1.5/§1.6) is what protects the API.
 
 ---
 
@@ -246,7 +322,7 @@ Both the backend and admin ship the Sentry SDK; they no-op when the DSN env var 
    ```bash
    echo -n "SENTRY_BACKEND_DSN" | gcloud secrets create sentry-dsn --data-file=-
    gcloud run services update classic-jerusalem-realty-api \
-     --region me-west1 \
+     --region europe-west1 \
      --update-secrets "SENTRY_DSN=sentry-dsn:latest"
    ```
 5. Add to Cloudflare Pages → project → Settings → **Environment variables**:
@@ -257,10 +333,16 @@ After that, any uncaught exception in production fires an alert to Sentry. Confi
 
 ## 5. Smoke test
 
-1. Open `https://admin.classicjerusalem.com` — Properties page loads.
-2. `https://api.classicjerusalem.com/health` returns `{"status": "ok"}`.
-3. Settings → Connect Google Drive → consent → land back on `?cloud_connected=1`.
-4. Create a property → upload a photo → photo appears.
+Run `bash deploy/post-deploy-check.sh` for the full network-level chain (9 checks: backend, admin gating, WP shortcode renderer). Should print `9 passed, 0 failed`.
+
+For a manual user-facing test:
+
+1. Open `https://admin.classicjerusalem.com` — Cloudflare Access prompts for email + PIN. After PIN entry the Properties page loads (no NetworkError in the console).
+2. `https://api.classicjerusalem.com/health` returns `{"status": "ok"}` (no key needed; `/health` is in the bypass list).
+3. `https://api.classicjerusalem.com/properties` without `X-API-Key` returns `401 Unauthorized` from the Worker.
+4. `https://classic-jerusalem-realty-api-PROJECT_NUMBER.europe-west1.run.app/properties` direct without `X-API-Key` also returns `401` (defense-in-depth from the FastAPI middleware).
+5. Settings → Connect Google Drive → consent → land back on `?cloud_connected=1`.
+6. Create a property → upload a photo → photo appears in admin and on `realestateadmin2025.classicjerusalem.com/listings/`.
 
 ---
 
@@ -277,7 +359,7 @@ every 10 minutes during business hours. Free tier covers up to 3 jobs.
 gcloud services enable cloudscheduler.googleapis.com
 
 gcloud scheduler jobs create http keep-warm \
-  --location me-west1 \
+  --location europe-west1 \
   --schedule "*/10 7-22 * * 0-4,6" \
   --time-zone Asia/Jerusalem \
   --uri "https://api.classicjerusalem.com/healthz" \
@@ -295,7 +377,7 @@ Cost stays $0 (Cloud Scheduler free tier covers 3 jobs; Cloud Run free
 tier covers the requests). If we ever want to disable it:
 
 ```bash
-gcloud scheduler jobs delete keep-warm --location me-west1
+gcloud scheduler jobs delete keep-warm --location europe-west1
 ```
 
 ## Rollback
@@ -305,9 +387,9 @@ gcloud scheduler jobs delete keep-warm --location me-west1
 Cloud Run keeps prior revisions; instant traffic shift, no rebuild needed:
 
 ```bash
-gcloud run services list-revisions --service classic-jerusalem-realty-api --region me-west1
+gcloud run services list-revisions --service classic-jerusalem-realty-api --region europe-west1
 gcloud run services update-traffic classic-jerusalem-realty-api \
-  --to-revisions PREVIOUS_REVISION_NAME=100 --region me-west1
+  --to-revisions PREVIOUS_REVISION_NAME=100 --region europe-west1
 ```
 
 ### Bad migration
@@ -348,6 +430,8 @@ Also worth: download a `pg_dump` from Supabase manually before any major migrati
 | --- | --- |
 | Cloud Run | $0 (always-free covers single-user traffic) |
 | Cloudflare Pages | $0 (free tier) |
+| Cloudflare Workers (api-proxy) | $0 (free tier covers 100k requests/day) |
+| Cloudflare Access (Zero Trust) | $0 (free tier covers up to 50 users) |
 | Supabase | $0 until ~500 MB of property+contact data; then $25/mo |
 | Custom domain | $0 (already paid for `classicjerusalem.com`) |
 | **Total expected** | **$0/mo** for at least the first year of single-user usage |
