@@ -16,8 +16,12 @@ set -uo pipefail
 
 API="${API:-https://api.classicjerusalem.com}"
 ADMIN="${ADMIN:-https://admin.classicjerusalem.com}"
-PUBLIC_SITE="${PUBLIC_SITE:-https://classicjerusalem.com}"
-LISTINGS_PATH="${LISTINGS_PATH:-/listings}"  # the page that hosts [classic_listings]
+# The WP install that hosts the [classic_listings] shortcode is on the
+# realestateadmin2025 subdomain (Namecheap shared hosting). The Vercel-
+# rendered public site at classicjerusalem.com pulls its content from
+# that WP install via REST, but doesn't itself execute shortcodes.
+WP_SITE="${WP_SITE:-https://realestateadmin2025.classicjerusalem.com}"
+LISTINGS_PATH="${LISTINGS_PATH:-/listings}"  # WP page hosting [classic_listings]
 
 pass=0
 fail=0
@@ -47,40 +51,32 @@ check "GET ${API}/public/properties → 200 with items[]" \
   "curl -fsS ${API}/public/properties | grep -q '\"items\"'"
 
 check "GET ${API}/public/properties has Cache-Control: public" \
-  "curl -sSI ${API}/public/properties | grep -iq 'cache-control:.*public'"
+  "curl -sS -D - -o /dev/null ${API}/public/properties | grep -iq 'cache-control:.*public'"
 
 # OAuth start should 30x to accounts.google.com — proves the client id
-# is wired and the Drive scope is requested.
+# is wired and the Drive scope is requested. FastAPI uses 307 by default.
 check "GET ${API}/auth/google/start → 30x to google.com" \
-  "[ \"\$(http_status ${API}/auth/google/start)\" = '302' ] || \
-   curl -sSI ${API}/auth/google/start | grep -iq 'location:.*accounts.google.com'"
+  "curl -sS --max-redir 0 -D - -o /dev/null ${API}/auth/google/start | grep -iq 'location:.*accounts.google.com'"
 
 echo
-echo "▶ Admin SPA (Cloudflare Pages)"
-check "GET ${ADMIN}/ → 200" \
-  "[ \"\$(http_status ${ADMIN}/)\" = '200' ]"
+echo "▶ Admin SPA (Cloudflare Pages, behind Cloudflare Access)"
+# Admin is gated by Cloudflare Access — unauthenticated requests get 302
+# to the cloudflareaccess.com login page. That's the correct behavior.
+check "GET ${ADMIN}/ → 302 to cloudflareaccess.com (gated)" \
+  "curl -sS --max-redir 0 -D - -o /dev/null ${ADMIN}/ | grep -iq 'location:.*cloudflareaccess.com'"
 
-# SPA fallback: deep links should also serve index.html, not 404.
-check "GET ${ADMIN}/contacts → 200 (SPA fallback)" \
-  "[ \"\$(http_status ${ADMIN}/contacts)\" = '200' ]"
-
-check "${ADMIN} sets X-Frame-Options: DENY" \
-  "curl -sSI ${ADMIN}/ | grep -iq 'x-frame-options: DENY'"
-
-check "${ADMIN} hashed assets cached 1y immutable" \
-  "curl -sSI ${ADMIN}/assets/ 2>/dev/null | grep -iq 'max-age=31536000' || \
-   curl -fsS ${ADMIN}/ | grep -oE '/assets/[^\"]+' | head -1 | \
-     xargs -I{} curl -sSI ${ADMIN}{} | grep -iq 'max-age=31536000'"
+check "GET ${ADMIN}/contacts → 302 to cloudflareaccess.com (gated)" \
+  "curl -sS --max-redir 0 -D - -o /dev/null ${ADMIN}/contacts | grep -iq 'location:.*cloudflareaccess.com'"
 
 echo
-echo "▶ WordPress public site"
-check "GET ${PUBLIC_SITE}${LISTINGS_PATH} → 200" \
-  "[ \"\$(http_status ${PUBLIC_SITE}${LISTINGS_PATH})\" = '200' ]"
+echo "▶ WordPress (shortcode renderer)"
+check "GET ${WP_SITE}${LISTINGS_PATH} → 200" \
+  "[ \"\$(http_status ${WP_SITE}${LISTINGS_PATH})\" = '200' ]"
 
 # The plugin's shortcode renders <article class='cjl-listing'> rows.
 # If we see at least one, the WP→backend chain is live.
 check "${LISTINGS_PATH} has at least one cjl-listing rendered" \
-  "curl -fsS ${PUBLIC_SITE}${LISTINGS_PATH} | grep -q 'cjl-listing'"
+  "curl -fsS ${WP_SITE}${LISTINGS_PATH} | grep -q 'cjl-listing'"
 
 echo
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
