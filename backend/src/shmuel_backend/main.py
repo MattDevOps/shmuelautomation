@@ -2,8 +2,9 @@ import logging
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Response
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,6 +43,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Public-prefix paths that bypass the API key check. Match the
+# api-proxy Worker's bypass list so the two layers stay aligned.
+_AUTH_BYPASS_PREFIXES = ("/public/", "/auth/google/", "/health", "/healthz")
+
+
+@app.middleware("http")
+async def require_api_key(request: Request, call_next):
+    """Defense-in-depth on top of the Cloudflare Worker gate. The Worker
+    handles browser/SPA traffic, but the underlying .run.app URL is
+    publicly reachable. This middleware blocks anyone hitting the origin
+    directly without the X-API-Key header.
+
+    Empty BACKEND_API_KEY skips the check — keeps local dev painless.
+    """
+    if not settings.backend_api_key:
+        return await call_next(request)
+    if any(request.url.path.startswith(p) for p in _AUTH_BYPASS_PREFIXES):
+        return await call_next(request)
+    if request.headers.get("x-api-key") != settings.backend_api_key:
+        return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
+    return await call_next(request)
 
 app.include_router(properties_router)
 app.include_router(property_notes_router)

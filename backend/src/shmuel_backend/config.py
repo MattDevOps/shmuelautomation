@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     # Sentry DSN for production error tracking. Empty = disabled (dev/CI default).
     sentry_dsn: str = ""
 
+    # Same value the api-proxy Cloudflare Worker checks. Defense-in-depth so
+    # direct hits to the .run.app URL (bypassing the Worker) also require it.
+    # Empty disables the check (dev default).
+    backend_api_key: str = ""
+
     # Scheduler — Asia/Jerusalem times. Configurable later via a settings UI.
     schedule_tz: str = "Asia/Jerusalem"
     schedule_morning_slot: str = "08:00"

@@ -22,12 +22,12 @@ def test_bash_syntax_valid() -> None:
 
 
 def test_covers_each_layer() -> None:
-    """Backend, admin SPA, WordPress public site — at least one check
-    against each. If a whole layer is dropped, this catches it."""
+    """Backend, admin SPA, WordPress shortcode renderer — at least one
+    check against each. If a whole layer is dropped, this catches it."""
     text = SCRIPT.read_text()
     assert "API=" in text and "/health" in text
     assert "ADMIN=" in text
-    assert "PUBLIC_SITE=" in text
+    assert "WP_SITE=" in text
     assert "cjl-listing" in text  # plugin output marker
 
 

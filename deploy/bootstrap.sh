@@ -135,6 +135,12 @@ push_secret encryption-key             "$ENCRYPTION_KEY"
 push_secret database-url               "$DATABASE_URL"
 push_secret google-oauth-client-id     "$GOOGLE_OAUTH_CLIENT_ID"
 push_secret google-oauth-client-secret "$GOOGLE_OAUTH_CLIENT_SECRET"
+# backend-api-key must match the API_KEY in the Cloudflare Worker
+# (api-proxy). Generate one with `python3 -c "import secrets; print('cjr_' + secrets.token_urlsafe(32))"`
+# the first time you bootstrap, then mirror it into the Worker secret.
+if [ -n "${BACKEND_API_KEY:-}" ]; then
+  push_secret backend-api-key          "$BACKEND_API_KEY"
+fi
 
 # Grant the Cloud Run runtime SA (the default compute SA) read access to
 # the secrets it'll mount as env vars at request time. Without this,
@@ -162,7 +168,7 @@ step "5/8  First Cloud Run deploy (≈3-4 min)"
     --min-instances 0 --max-instances 4 \
     --memory 512Mi --cpu 1 --port 8000 \
     --set-env-vars "ENVIRONMENT=production,CORS_ORIGINS=[\"https://${ADMIN_DOMAIN}\"],GOOGLE_OAUTH_REDIRECT_URI=https://${API_DOMAIN}/auth/google/callback,ADMIN_REDIRECT_URI=https://${ADMIN_DOMAIN}/settings" \
-    --set-secrets "ENCRYPTION_KEY=encryption-key:latest,GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest,DATABASE_URL=database-url:latest" \
+    --set-secrets "ENCRYPTION_KEY=encryption-key:latest,GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest,DATABASE_URL=database-url:latest,BACKEND_API_KEY=backend-api-key:latest" \
     >/dev/null )
 SERVICE_URL=$(gcloud run services describe "$SERVICE" \
   --region "$REGION" --format='value(status.url)')
