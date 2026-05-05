@@ -13,6 +13,9 @@
 # order, and reports a single OK/FAIL per check. Non-destructive — only
 # GETs, no DB writes.
 set -uo pipefail
+# Keep pipefail off in check pipelines: `grep -q` exits early on a match,
+# which gives upstream curl a SIGPIPE and pipefail flags it as failure.
+# We rely on the rightmost command's exit code (the assertion itself).
 
 API="${API:-https://api.classicjerusalem.com}"
 ADMIN="${ADMIN:-https://admin.classicjerusalem.com}"
@@ -28,7 +31,7 @@ fail=0
 check() {
   local label="$1" cmd="$2"
   printf '  %-60s' "$label"
-  if eval "$cmd" >/dev/null 2>&1; then
+  if (set +o pipefail; eval "$cmd") >/dev/null 2>&1; then
     printf '\033[32mOK\033[0m\n'
     pass=$((pass+1))
   else
@@ -37,7 +40,7 @@ check() {
   fi
 }
 
-http_status() { curl -fsS -o /dev/null -w '%{http_code}' "$1"; }
+http_status() { curl -fsSL -o /dev/null -w '%{http_code}' "$1"; }
 
 echo
 echo "▶ Backend (Cloud Run)"
@@ -73,10 +76,11 @@ echo "▶ WordPress (shortcode renderer)"
 check "GET ${WP_SITE}${LISTINGS_PATH} → 200" \
   "[ \"\$(http_status ${WP_SITE}${LISTINGS_PATH})\" = '200' ]"
 
-# The plugin's shortcode renders <article class='cjl-listing'> rows.
-# If we see at least one, the WP→backend chain is live.
-check "${LISTINGS_PATH} has at least one cjl-listing rendered" \
-  "curl -fsS ${WP_SITE}${LISTINGS_PATH} | grep -q 'cjl-listing'"
+# The plugin renders <article class='cjl-listing'> when properties exist,
+# or <p class='cjl-empty'> when the catalog is empty. Either proves the
+# shortcode is wired up and the WP→backend chain is reachable.
+check "${LISTINGS_PATH} has cjl-* output (plugin live)" \
+  "curl -fsSL ${WP_SITE}${LISTINGS_PATH} | grep -qE 'cjl-(listing|empty)'"
 
 echo
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
