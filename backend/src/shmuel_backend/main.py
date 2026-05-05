@@ -57,8 +57,12 @@ async def require_api_key(request: Request, call_next):
     directly without the X-API-Key header.
 
     Empty BACKEND_API_KEY skips the check — keeps local dev painless.
+    OPTIONS preflights bypass so CORSMiddleware can answer them; preflight
+    requests don't carry custom headers like X-API-Key.
     """
     if not settings.backend_api_key:
+        return await call_next(request)
+    if request.method == "OPTIONS":
         return await call_next(request)
     if any(request.url.path.startswith(p) for p in _AUTH_BYPASS_PREFIXES):
         return await call_next(request)
