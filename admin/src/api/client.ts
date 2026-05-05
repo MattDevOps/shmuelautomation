@@ -1,4 +1,5 @@
 export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const API_KEY = import.meta.env.VITE_API_KEY ?? ''
 
 export class ApiError extends Error {
   status: number
@@ -21,6 +22,9 @@ export async function request<T>(
     typeof FormData !== 'undefined' && init.body instanceof FormData
   if (init.body !== undefined && !isFormData && !headers.has('content-type')) {
     headers.set('content-type', 'application/json')
+  }
+  if (API_KEY && !headers.has('x-api-key')) {
+    headers.set('x-api-key', API_KEY)
   }
   const r = await fetch(`${API_URL}${path}`, { ...init, headers })
   if (r.status === 204) return undefined as T
