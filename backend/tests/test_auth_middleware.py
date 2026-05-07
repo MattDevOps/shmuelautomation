@@ -8,7 +8,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from shmuel_backend.config import settings
-from shmuel_backend.main import app
 
 
 @pytest.fixture
@@ -17,11 +16,6 @@ def with_key(monkeypatch: pytest.MonkeyPatch) -> str:
     key = "test-secret-key-do-not-use-in-prod"
     monkeypatch.setattr(settings, "backend_api_key", key)
     return key
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 def test_no_key_configured_means_open_access(client: TestClient) -> None:
