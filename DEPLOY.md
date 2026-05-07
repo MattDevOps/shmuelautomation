@@ -341,14 +341,19 @@ goes out — same graceful no-op pattern Sentry uses.
 1. Sign up at <https://resend.com>. Verify the `classicjerusalem.com`
    sender domain (DNS TXT/CNAME records — Resend walks you through it).
 2. Issue an API key (Server / Production scope).
-3. Push it to Cloud Run:
+3. Create the secret in Secret Manager and grant the Cloud Run runtime SA
+   read access. The deploy workflow already references the secret +
+   env vars, so a redeploy is all it takes after that.
    ```bash
    echo -n "re_xxxxxxxx" | gcloud secrets create resend-api-key --data-file=-
-   gcloud run services update classic-jerusalem-realty-api \
-     --region europe-west1 \
-     --update-secrets "RESEND_API_KEY=resend-api-key:latest" \
-     --update-env-vars "NEWSLETTER_FROM_EMAIL=Classic Jerusalem Realty <newsletter@classicjerusalem.com>,NEWSLETTER_API_BASE_URL=https://api.classicjerusalem.com,NEWSLETTER_SITE_BASE_URL=https://classicjerusalem.com,NEWSLETTER_DIGEST_THRESHOLD=3"
+   # Grant the runtime SA (default compute SA) read access:
+   PROJECT_NUMBER=$(gcloud projects describe "$(gcloud config get-value project)" --format='value(projectNumber)')
+   gcloud secrets add-iam-policy-binding resend-api-key \
+     --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+     --role="roles/secretmanager.secretAccessor"
    ```
+   Then push (or trigger a redeploy of `deploy-backend.yml`) — Cloud Run
+   will pick up the new secret on the next revision.
 4. From the WordPress side, drop `[classic_newsletter]` into a page (or
    the footer widget) so visitors can sign up.
 
