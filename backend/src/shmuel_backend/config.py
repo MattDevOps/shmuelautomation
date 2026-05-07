@@ -33,5 +33,19 @@ class Settings(BaseSettings):
     schedule_friday_block_after: str = "13:00"
     schedule_saturday_resume_at: str = "21:00"
 
+    # Resend transactional email. Empty = no-op (subscribe still records the
+    # row, the email just doesn't go out — keeps local dev painless).
+    resend_api_key: str = ""
+    newsletter_from_email: str = "Classic Jerusalem Realty <newsletter@classicjerusalem.com>"
+    # Public base URL the confirmation/unsubscribe links point at. The
+    # backend itself sits behind the Worker; both layers serve /public/* so
+    # this is the right host for the click-through links.
+    newsletter_api_base_url: str = "http://localhost:8000"
+    # Public site base URL — used in email bodies to link each property
+    # back to Shmuel's WordPress site so clicks land on listings, not the API.
+    newsletter_site_base_url: str = "https://classicjerusalem.com"
+    # Send a digest once a subscriber has this many unseen matching properties.
+    newsletter_digest_threshold: int = 3
+
 
 settings = Settings()

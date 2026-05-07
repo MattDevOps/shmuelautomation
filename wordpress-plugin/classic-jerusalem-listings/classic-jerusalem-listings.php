@@ -3,7 +3,7 @@
  * Plugin Name:       Classic Jerusalem Listings
  * Plugin URI:        https://classicjerusalem.com
  * Description:       Pulls property listings from the Classic Jerusalem Realty backend and renders them via a [classic_listings] shortcode.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Classic Jerusalem Realty
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const CJL_VERSION       = '1.0.0';
+const CJL_VERSION       = '1.1.0';
 const CJL_OPTION_KEY    = 'classic_jerusalem_listings';
 const CJL_DEFAULT_API   = 'https://api.classicjerusalem.com';
 const CJL_CACHE_SECONDS = 60;
@@ -138,6 +138,111 @@ function cjl_shortcode($atts)
     return $html;
 }
 add_shortcode('classic_listings', 'cjl_shortcode');
+
+/**
+ * Newsletter signup form.
+ *
+ * [classic_newsletter] renders an HTML form that POSTs to
+ * /public/newsletter/subscribe on the same backend the listings shortcode
+ * reads from. Submits via fetch() so the page does not reload; on success
+ * we swap in a "check your email" message. Falls back to a normal browser
+ * submit if JS is disabled.
+ *
+ * Optional attribute: language="he" defaults the form copy to Hebrew.
+ */
+function cjl_newsletter_shortcode($atts)
+{
+    $atts = shortcode_atts([
+        'language' => 'en',
+    ], $atts, 'classic_newsletter');
+
+    $lang  = $atts['language'] === 'he' ? 'he' : 'en';
+    $api   = esc_js(cjl_api_base() . '/public/newsletter/subscribe');
+    $form_id = 'cjl-newsletter-' . uniqid();
+
+    if ($lang === 'he') {
+        $heading       = 'הצטרפו לרשימת התפוצה';
+        $sub_copy      = 'מקבלים מייל על נכסים חדשים בירושלים — בלי ספאם, ניתן להסיר בכל עת.';
+        $email_label   = 'דוא"ל';
+        $type_label    = 'מתעניינים ב';
+        $opt_rent      = 'השכרה';
+        $opt_sale      = 'מכירה';
+        $opt_both      = 'שניהם';
+        $submit_label  = 'הרשמה';
+        $thanks        = 'תודה! שלחנו אליך מייל אישור — יש ללחוץ על הקישור כדי להפעיל את ההרשמה.';
+        $error         = 'משהו השתבש. נסו שוב מאוחר יותר.';
+        $dir           = 'rtl';
+    } else {
+        $heading       = 'New listings, in your inbox';
+        $sub_copy      = 'Get an email when new properties are listed in Jerusalem. No spam, unsubscribe anytime.';
+        $email_label   = 'Email';
+        $type_label    = "I'm interested in";
+        $opt_rent      = 'Rentals';
+        $opt_sale      = 'For sale';
+        $opt_both      = 'Both';
+        $submit_label  = 'Subscribe';
+        $thanks        = "Thanks! We've sent a confirmation email — click the link to activate your subscription.";
+        $error         = 'Something went wrong. Please try again in a moment.';
+        $dir           = 'ltr';
+    }
+
+    ob_start();
+    ?>
+    <form id="<?php echo esc_attr($form_id); ?>" class="cjl-newsletter" dir="<?php echo $dir; ?>" novalidate>
+        <h3 class="cjl-newsletter__heading"><?php echo esc_html($heading); ?></h3>
+        <p class="cjl-newsletter__sub"><?php echo esc_html($sub_copy); ?></p>
+        <label class="cjl-newsletter__field">
+            <span><?php echo esc_html($email_label); ?></span>
+            <input type="email" name="email" required autocomplete="email" />
+        </label>
+        <fieldset class="cjl-newsletter__fieldset">
+            <legend><?php echo esc_html($type_label); ?></legend>
+            <label><input type="radio" name="type_filter" value="both" checked /> <?php echo esc_html($opt_both); ?></label>
+            <label><input type="radio" name="type_filter" value="rent" /> <?php echo esc_html($opt_rent); ?></label>
+            <label><input type="radio" name="type_filter" value="sale" /> <?php echo esc_html($opt_sale); ?></label>
+        </fieldset>
+        <input type="hidden" name="language" value="<?php echo esc_attr($lang); ?>" />
+        <button type="submit"><?php echo esc_html($submit_label); ?></button>
+        <p class="cjl-newsletter__msg" role="status" aria-live="polite"></p>
+    </form>
+    <script>
+    (function(){
+        var form = document.getElementById('<?php echo esc_js($form_id); ?>');
+        if (!form) return;
+        var msg = form.querySelector('.cjl-newsletter__msg');
+        var btn = form.querySelector('button');
+        form.addEventListener('submit', function(e){
+            e.preventDefault();
+            msg.textContent = '';
+            btn.disabled = true;
+            var data = {
+                email: form.elements['email'].value.trim(),
+                language: form.elements['language'].value,
+                type_filter: form.querySelector('input[name="type_filter"]:checked').value,
+                source: 'wordpress'
+            };
+            fetch('<?php echo $api; ?>', {
+                method: 'POST',
+                headers: {'content-type': 'application/json'},
+                body: JSON.stringify(data)
+            }).then(function(r){
+                if (!r.ok) throw new Error('http ' + r.status);
+                form.reset();
+                msg.classList.add('cjl-newsletter__msg--ok');
+                msg.textContent = <?php echo wp_json_encode($thanks); ?>;
+            }).catch(function(){
+                msg.classList.add('cjl-newsletter__msg--error');
+                msg.textContent = <?php echo wp_json_encode($error); ?>;
+            }).finally(function(){
+                btn.disabled = false;
+            });
+        });
+    })();
+    </script>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('classic_newsletter', 'cjl_newsletter_shortcode');
 
 /**
  * Settings page under Settings → Classic Listings so Shmuel can change

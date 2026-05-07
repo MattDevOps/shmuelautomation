@@ -22,6 +22,8 @@ from shmuel_backend.models import (
     PostSlot,
     Property,
 )
+from shmuel_backend.newsletter import admin_router as newsletter_admin_router
+from shmuel_backend.newsletter import public_router as newsletter_public_router
 from shmuel_backend.properties import router as properties_router
 from shmuel_backend.property_notes import router as property_notes_router
 from shmuel_backend.public import router as public_router
@@ -79,6 +81,8 @@ app.include_router(contacts_router)
 app.include_router(queue_router)
 app.include_router(compose_router)
 app.include_router(groups_router)
+app.include_router(newsletter_public_router)
+app.include_router(newsletter_admin_router)
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]

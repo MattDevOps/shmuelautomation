@@ -8,10 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from shmuel_backend.config import settings
 from shmuel_backend.db import get_session
 from shmuel_backend.enums import PropertyStatus, PropertyType
 from shmuel_backend.excel import properties_to_xlsx
 from shmuel_backend.models import Contact, Property
+from shmuel_backend.newsletter import dispatch_digests_after_property
 from shmuel_backend.queue_routes import cancel_pending_for, enqueue_property
 from shmuel_backend.schemas import (
     BulkDeleteRequest,
@@ -88,6 +90,13 @@ async def create_property(payload: PropertyCreate, session: SessionDep) -> Prope
         await enqueue_property(session, prop.id, priority=200)
     await session.commit()
     await session.refresh(prop)
+    # Newsletter digest dispatch — only available listings count toward the
+    # threshold, and the routine swallows its own errors so a delivery hiccup
+    # never rolls back the property write.
+    if prop.status == PropertyStatus.AVAILABLE:
+        await dispatch_digests_after_property(
+            session, threshold=settings.newsletter_digest_threshold
+        )
     return prop
 
 

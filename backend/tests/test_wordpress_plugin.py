@@ -33,6 +33,23 @@ def test_shortcode_registered() -> None:
     assert "add_shortcode('classic_listings'" in text or 'add_shortcode("classic_listings"' in text
 
 
+def test_newsletter_shortcode_registered() -> None:
+    """[classic_newsletter] must be callable and POST to the public
+    subscribe endpoint. The form is rendered server-side and submits via
+    fetch() so the page doesn't reload."""
+    text = MAIN_PHP.read_text()
+    assert (
+        "add_shortcode('classic_newsletter'" in text
+        or 'add_shortcode("classic_newsletter"' in text
+    )
+    assert "/public/newsletter/subscribe" in text
+    # Hidden language and visible type_filter inputs need to be present so
+    # the request payload matches what the backend's SubscribeRequest expects.
+    assert 'name="email"' in text
+    assert 'name="type_filter"' in text
+    assert 'name="language"' in text
+
+
 def test_settings_page_registered() -> None:
     text = MAIN_PHP.read_text()
     assert "add_options_page" in text

@@ -4,7 +4,7 @@ Tags: real estate, listings, shortcode, jerusalem
 Requires at least: 6.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: MIT
 
 Pulls property listings from the Classic Jerusalem Realty backend and renders them via a shortcode.
@@ -15,6 +15,13 @@ Reads from the public read API at api.classicjerusalem.com (or your own
 configured URL) and renders semantic HTML you can style in your theme.
 
 Use the shortcode `[classic_listings]` in any page or post.
+
+For newsletter signups, use `[classic_newsletter]`. It renders an email
+form with rent/sale/both preference selection. The form submits to the
+backend's `/public/newsletter/subscribe` endpoint and triggers a
+double-opt-in confirmation email; subscribers receive a digest when at
+least three new matching properties have been added since their last
+email.
 
 Options:
 
@@ -40,6 +47,9 @@ Responses are cached for 60 seconds in WordPress transients.
 3. Add `[classic_listings]` to any page.
 
 == Changelog ==
+
+= 1.1.0 =
+* Add `[classic_newsletter]` shortcode for newsletter signups (EN/HE).
 
 = 1.0.0 =
 * Initial release: shortcode, settings page, transient cache.

@@ -39,3 +39,11 @@ class GroupAudience(StrEnum):
     RENT = "rent"
     SALE = "sale"
     BOTH = "both"
+
+
+class SubscriberPreference(StrEnum):
+    """Which property types a newsletter subscriber wants to hear about."""
+
+    RENT = "rent"
+    SALE = "sale"
+    BOTH = "both"

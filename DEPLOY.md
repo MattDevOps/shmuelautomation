@@ -331,7 +331,31 @@ Both the backend and admin ship the Sentry SDK; they no-op when the DSN env var 
 
 After that, any uncaught exception in production fires an alert to Sentry. Configure email/Slack notifications from the Sentry project settings.
 
-## 5. Smoke test
+## 5. Resend — newsletter delivery (optional)
+
+The newsletter (`/newsletter` admin page, `[classic_newsletter]` WordPress
+shortcode) only emails confirmation + digest messages when `RESEND_API_KEY`
+is set. With the var unset, signups still record into the DB but no email
+goes out — same graceful no-op pattern Sentry uses.
+
+1. Sign up at <https://resend.com>. Verify the `classicjerusalem.com`
+   sender domain (DNS TXT/CNAME records — Resend walks you through it).
+2. Issue an API key (Server / Production scope).
+3. Push it to Cloud Run:
+   ```bash
+   echo -n "re_xxxxxxxx" | gcloud secrets create resend-api-key --data-file=-
+   gcloud run services update classic-jerusalem-realty-api \
+     --region europe-west1 \
+     --update-secrets "RESEND_API_KEY=resend-api-key:latest" \
+     --update-env-vars "NEWSLETTER_FROM_EMAIL=Classic Jerusalem Realty <newsletter@classicjerusalem.com>,NEWSLETTER_API_BASE_URL=https://api.classicjerusalem.com,NEWSLETTER_SITE_BASE_URL=https://classicjerusalem.com,NEWSLETTER_DIGEST_THRESHOLD=3"
+   ```
+4. From the WordPress side, drop `[classic_newsletter]` into a page (or
+   the footer widget) so visitors can sign up.
+
+Tweak `NEWSLETTER_DIGEST_THRESHOLD` later if 3 turns out to be too
+chatty or too quiet — it's a single env var change, no code redeploy.
+
+## 6. Smoke test
 
 Run `bash deploy/post-deploy-check.sh` for the full network-level chain (9 checks: backend, admin gating, WP shortcode renderer). Should print `9 passed, 0 failed`.
 

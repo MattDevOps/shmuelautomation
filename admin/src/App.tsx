@@ -4,6 +4,7 @@ import ContactImportPage from './pages/ContactImportPage'
 import ContactsPage from './pages/ContactsPage'
 import GroupsPage from './pages/GroupsPage'
 import ImportYad2Page from './pages/ImportYad2Page'
+import NewsletterPage from './pages/NewsletterPage'
 import PropertiesPage from './pages/PropertiesPage'
 import PropertyEditPage from './pages/PropertyEditPage'
 import QueuePage from './pages/QueuePage'
@@ -28,6 +29,7 @@ export default function App() {
           <NavLink to="/queue">Queue</NavLink>
           <NavLink to="/groups">Groups</NavLink>
           <NavLink to="/contacts">Contacts</NavLink>
+          <NavLink to="/newsletter">Newsletter</NavLink>
           <NavLink to="/import">Import from Yad2</NavLink>
           <NavLink to="/settings">Settings</NavLink>
           <NavLink to="/system">System</NavLink>
@@ -45,6 +47,7 @@ export default function App() {
           <Route path="/contacts/import" element={<ContactImportPage />} />
           <Route path="/contacts/new" element={<ContactEditPage />} />
           <Route path="/contacts/:id" element={<ContactEditPage />} />
+          <Route path="/newsletter" element={<NewsletterPage />} />
           <Route path="/system" element={<SystemPage />} />
           <Route path="/:id" element={<PropertyEditPage />} />
         </Routes>

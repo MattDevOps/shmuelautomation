@@ -24,6 +24,7 @@ from shmuel_backend.enums import (
     PostSlotStatus,
     PropertyStatus,
     PropertyType,
+    SubscriberPreference,
 )
 
 
@@ -236,6 +237,37 @@ class Group(Base):
 
     __table_args__ = (
         Index("ix_groups_platform_audience", "platform", "audience"),
+    )
+
+
+class NewsletterSubscriber(Base):
+    """Public-site newsletter signup.
+
+    Double opt-in: a row exists from the moment someone hits subscribe but
+    `confirmed_at` is null until they click the email link. Digests only go
+    to confirmed, non-unsubscribed rows. `last_digest_at` is the watermark
+    for "what have we already sent this person" — properties created after
+    that timestamp count toward the next digest.
+    """
+
+    __tablename__ = "newsletter_subscribers"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    language: Mapped[str] = mapped_column(String(8), default="en")
+    type_filter: Mapped[SubscriberPreference] = mapped_column(
+        Enum(SubscriberPreference, name="subscriber_preference", native_enum=False, length=8),
+        default=SubscriberPreference.BOTH,
+    )
+    confirmation_token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    unsubscribe_token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    confirmed_at: Mapped[datetime | None] = mapped_column()
+    unsubscribed_at: Mapped[datetime | None] = mapped_column()
+    last_digest_at: Mapped[datetime | None] = mapped_column()
+    source: Mapped[str | None] = mapped_column(String(50))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
     )
 
 
