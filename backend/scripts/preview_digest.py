@@ -51,7 +51,9 @@ sub = NewsletterSubscriber(
 properties = [
     _prop(type_=PropertyType.RENT, neighborhood="Rehavia", price=Decimal("9500"), rooms=4, size=95),
     _prop(type_=PropertyType.SALE, neighborhood="Baka", price=Decimal("3200000"), rooms=3, size=78),
-    _prop(type_=PropertyType.RENT, neighborhood="Nachlaot", price=Decimal("7200"), rooms=2, size=55),
+    _prop(
+        type_=PropertyType.RENT, neighborhood="Nachlaot", price=Decimal("7200"), rooms=2, size=55
+    ),
 ]
 
 rendered = render_digest(sub, properties, photos_by_property={})
