@@ -244,6 +244,12 @@ export interface CloudPhoto {
   created_at: string
 }
 
+export interface PropertyPhotoSummary {
+  property_id: string
+  count: number
+  first_thumbnail: string | null
+}
+
 export interface Yad2ImportPreview {
   url: string
   title: string | null

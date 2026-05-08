@@ -7,6 +7,7 @@ import type {
   PropertyCreate,
   PropertyListFilters,
   PropertyNote,
+  PropertyPhotoSummary,
   PropertyStatus,
   PropertyUpdate,
   Yad2ImportPreview,
@@ -28,6 +29,10 @@ export function listProperties(
   filters: PropertyListFilters = {},
 ): Promise<Property[]> {
   return request<Property[]>(`/properties${toQuery(filters)}`)
+}
+
+export function listPhotoSummaries(): Promise<PropertyPhotoSummary[]> {
+  return request<PropertyPhotoSummary[]>('/properties/photo-summaries')
 }
 
 export function getProperty(id: string): Promise<Property> {

@@ -314,6 +314,12 @@ class CloudPhotoRead(BaseModel):
     created_at: datetime
 
 
+class PropertyPhotoSummary(BaseModel):
+    property_id: uuid.UUID
+    count: int
+    first_thumbnail: str | None = None
+
+
 class Yad2ImportPreview(BaseModel):
     url: str
     title: str | None = None

@@ -5,22 +5,48 @@ import {
   bulkDeleteProperties,
   bulkUpdateStatus,
   deleteProperty,
+  listPhotoSummaries,
   listProperties,
   updateProperty,
 } from '../api/properties'
 import type {
   Property,
   PropertyListFilters,
+  PropertyPhotoSummary,
   PropertyStatus,
   PropertyType,
 } from '../api/types'
 import { PROPERTY_STATUSES, PROPERTY_TYPES } from '../api/types'
+import PhotoLightbox from '../components/PhotoLightbox'
 
 function fmtPrice(p: Property): string {
   const n = Number(p.price)
   return Number.isFinite(n)
     ? `${p.currency} ${n.toLocaleString()}`
     : `${p.currency} ${p.price}`
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return '—'
+  const d = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'))
+  return d.toLocaleString('en-IL', {
+    timeZone: 'Asia/Jerusalem',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function sourceLabel(url: string): string {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '')
+    if (host.includes('yad2')) return 'Yad2'
+    if (host.includes('madlan')) return 'Madlan'
+    if (host.includes('janglo')) return 'Janglo'
+    return host
+  } catch {
+    return 'Source'
+  }
 }
 
 function hasActiveFilters(f: PropertyListFilters): boolean {
@@ -33,6 +59,10 @@ export default function PropertiesPage() {
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkBusy, setBulkBusy] = useState(false)
+  const [photoSummaries, setPhotoSummaries] = useState<
+    Map<string, PropertyPhotoSummary>
+  >(new Map())
+  const [lightboxFor, setLightboxFor] = useState<Property | null>(null)
   const selectAllRef = useRef<HTMLInputElement>(null)
 
   async function reload(): Promise<void> {
@@ -48,8 +78,6 @@ export default function PropertiesPage() {
         if (cancelled) return
         setRows(data)
         setError(null)
-        // Filter changes can drop rows; clear selection so the bulk bar
-        // doesn't reference ids that aren't visible anymore.
         setSelected(new Set())
       })
       .catch((e: Error) => {
@@ -61,6 +89,22 @@ export default function PropertiesPage() {
       cancelled = true
     }
   }, [filters])
+
+  useEffect(() => {
+    let cancelled = false
+    listPhotoSummaries()
+      .then((summaries) => {
+        if (cancelled) return
+        setPhotoSummaries(new Map(summaries.map((s) => [s.property_id, s])))
+      })
+      .catch(() => {
+        // Photo summary failures are non-fatal — the page still renders
+        // without thumbnails.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [rows])
 
   // Keep the select-all checkbox in indeterminate state when partially selected.
   useEffect(() => {
@@ -309,6 +353,9 @@ export default function PropertiesPage() {
               <th scope="col">Rooms</th>
               <th scope="col">Neighborhood</th>
               <th scope="col">Owner</th>
+              <th scope="col">Source</th>
+              <th scope="col">Photos</th>
+              <th scope="col">Added</th>
               <th scope="col">
                 <span className="sr-only">Actions</span>
               </th>
@@ -350,6 +397,47 @@ export default function PropertiesPage() {
                 <td dir="auto">
                   {p.owner_name ?? <span className="dim">—</span>}
                 </td>
+                <td>
+                  {p.yad2_url ? (
+                    <a
+                      href={p.yad2_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="source-link"
+                      title={p.yad2_url}
+                    >
+                      ↗ {sourceLabel(p.yad2_url)}
+                    </a>
+                  ) : (
+                    <span className="dim">—</span>
+                  )}
+                </td>
+                <td>
+                  {(() => {
+                    const s = photoSummaries.get(p.id)
+                    if (!s) return <span className="dim">—</span>
+                    return (
+                      <button
+                        type="button"
+                        className="photo-thumb-btn"
+                        onClick={() => setLightboxFor(p)}
+                        aria-label={`View ${s.count} photos for ${p.neighborhood ?? p.id}`}
+                      >
+                        {s.first_thumbnail ? (
+                          <img
+                            src={s.first_thumbnail}
+                            alt=""
+                            className="photo-thumb"
+                          />
+                        ) : (
+                          <span className="photo-thumb photo-thumb-placeholder" />
+                        )}
+                        <span className="photo-count">{s.count}</span>
+                      </button>
+                    )
+                  })()}
+                </td>
+                <td className="num">{fmtDate(p.created_at)}</td>
                 <td className="row-actions">
                   <Link to={`/${p.id}`}>Edit</Link>
                   <button
@@ -364,6 +452,12 @@ export default function PropertiesPage() {
             ))}
           </tbody>
         </table></div>
+      )}
+      {lightboxFor && (
+        <PhotoLightbox
+          property={lightboxFor}
+          onClose={() => setLightboxFor(null)}
+        />
       )}
     </section>
   )

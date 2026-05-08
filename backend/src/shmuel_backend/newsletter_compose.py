@@ -145,20 +145,35 @@ def _card_html(prop: Property, photos: list[CloudPhoto], lang: str) -> str:
     if prop.size_sqm:
         facts.append(f'{prop.size_sqm} מ"ר' if lang == "he" else f"{prop.size_sqm} sqm")
     facts_html = " · ".join(facts)
-    photo_html = ""
+
+    photo_block = ""
     if photos:
         thumb = photos[0].thumbnail_url or photos[0].web_view_url
         if thumb:
-            photo_html = (
-                f'<img src="{thumb}" alt="" '
-                'style="max-width:100%;border-radius:6px;margin-bottom:8px;" />'
+            photo_block = (
+                f'<img src="{thumb}" alt="" width="568" '
+                'style="display:block;width:100%;max-width:568px;height:auto;'
+                'border-top-left-radius:10px;border-top-right-radius:10px;" />'
             )
-    return f"""<div class="card" style="border:1px solid #e5e5e5;border-radius:8px;padding:16px;margin:12px 0;">
-  {photo_html}
-  <div style="font-weight:600;">{_html_escape(place)} — {type_label}</div>
-  <div style="font-size:18px;margin:4px 0;">{price}</div>
-  <div class="muted">{_html_escape(facts_html)}</div>
-</div>"""
+
+    badge_bg = "#17483b" if prop.type == PropertyType.RENT else "#b8893f"
+    badge_html = (
+        f'<span style="display:inline-block;background:{badge_bg};color:#fff;'
+        f'font-size:11px;letter-spacing:0.06em;text-transform:uppercase;'
+        f'padding:4px 10px;border-radius:999px;font-weight:600;">'
+        f"{type_label}</span>"
+    )
+
+    inner_pad_top = "16px" if photo_block else "20px"
+    return f"""<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:14px 0;background:#ffffff;border:1px solid #ece4d2;border-radius:10px;overflow:hidden;">
+  <tr><td style="padding:0;">{photo_block}</td></tr>
+  <tr><td style="padding:{inner_pad_top} 20px 18px 20px;">
+    <div style="margin-bottom:8px;">{badge_html}</div>
+    <div style="font-size:18px;font-weight:600;color:#2b2b2b;line-height:1.3;">{_html_escape(place)}</div>
+    <div style="font-size:22px;font-weight:700;color:#17483b;margin:6px 0 4px;">{price}</div>
+    <div style="color:#6c6c6c;font-size:14px;">{_html_escape(facts_html)}</div>
+  </td></tr>
+</table>"""
 
 
 def _digest_plain_text(
@@ -198,26 +213,55 @@ def _digest_plain_text(
 
 def _wrap_html(body: str, *, lang: str) -> str:
     direction = "rtl" if lang == "he" else "ltr"
+    tagline = (
+        "ברוכים הבאים לנדל\"ן בירושלים" if lang == "he"
+        else "Jerusalem's local brokerage since 2008"
+    )
+    rights = (
+        "© Classic Jerusalem Realty — כל הזכויות שמורות" if lang == "he"
+        else "© Classic Jerusalem Realty — all rights reserved"
+    )
     return f"""<!doctype html>
 <html lang="{lang}" dir="{direction}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="light only" />
+  <meta name="supported-color-schemes" content="light" />
   <title>Classic Jerusalem Realty</title>
   <style>
-    body {{ font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
-            color: #222; line-height: 1.5; max-width: 600px; margin: 0 auto;
-            padding: 24px; }}
-    h2 {{ margin: 0 0 16px; }}
-    a.cta {{ display: inline-block; padding: 10px 18px;
-              background: #17483b; color: #fff; text-decoration: none;
-              border-radius: 6px; }}
-    .muted {{ color: #666; font-size: 14px; }}
-    .footer {{ margin-top: 32px; }}
+    body {{ margin:0; padding:0; background:#faf6ef;
+            font-family: Georgia, "Times New Roman", serif;
+            color:#2b2b2b; line-height:1.55; }}
+    h1, h2, h3 {{ font-family: Georgia, "Times New Roman", serif; }}
+    h2 {{ margin:0 0 12px; font-size:22px; color:#17483b; }}
+    p {{ margin:0 0 12px; }}
+    a {{ color:#17483b; }}
+    a.cta {{ display:inline-block; padding:12px 24px;
+             background:#17483b; color:#ffffff !important;
+             text-decoration:none; border-radius:6px;
+             font-weight:600; letter-spacing:0.02em;
+             font-family: Helvetica, Arial, sans-serif; }}
+    .muted {{ color:#6c6c6c; font-size:13px; }}
   </style>
 </head>
-<body>
+<body style="margin:0;padding:0;background:#faf6ef;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#faf6ef;">
+    <tr><td align="center" style="padding:24px 12px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background:#ffffff;border:1px solid #ece4d2;border-radius:12px;overflow:hidden;">
+        <tr><td style="background:#17483b;padding:22px 28px;text-align:center;">
+          <div style="font-family:Georgia,serif;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.04em;">Classic Jerusalem Realty</div>
+          <div style="color:#d8c89c;font-size:12px;margin-top:4px;letter-spacing:0.08em;text-transform:uppercase;font-family:Helvetica,Arial,sans-serif;">{tagline}</div>
+        </td></tr>
+        <tr><td style="padding:28px 28px 24px 28px;">
 {body}
+        </td></tr>
+        <tr><td style="background:#faf6ef;border-top:1px solid #ece4d2;padding:16px 28px;text-align:center;font-family:Helvetica,Arial,sans-serif;font-size:12px;color:#8a8a8a;">
+          {rights}
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
 </body>
 </html>"""
 

@@ -5,6 +5,17 @@ import { MemoryRouter } from 'react-router-dom'
 import PropertiesPage from './PropertiesPage'
 import type { Property } from '../api/types'
 
+// Photo-summaries fires unconditionally on mount; stub it so it doesn't
+// hit the network or count against fetchSpy assertions in these tests.
+vi.mock('../api/properties', async () => {
+  const actual =
+    await vi.importActual<typeof import('../api/properties')>('../api/properties')
+  return {
+    ...actual,
+    listPhotoSummaries: vi.fn().mockResolvedValue([]),
+  }
+})
+
 function makeProperty(overrides: Partial<Property> = {}): Property {
   return {
     id: 'p1',

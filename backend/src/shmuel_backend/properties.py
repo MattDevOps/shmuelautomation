@@ -5,14 +5,14 @@ from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shmuel_backend.config import settings
 from shmuel_backend.db import get_session
 from shmuel_backend.enums import PropertyStatus, PropertyType
 from shmuel_backend.excel import properties_to_xlsx
-from shmuel_backend.models import Contact, Property
+from shmuel_backend.models import CloudPhoto, Contact, Property
 from shmuel_backend.newsletter import dispatch_digests_after_property
 from shmuel_backend.queue_routes import cancel_pending_for, enqueue_property
 from shmuel_backend.schemas import (
@@ -22,6 +22,7 @@ from shmuel_backend.schemas import (
     ContactMatch,
     DuplicateMatch,
     PropertyCreate,
+    PropertyPhotoSummary,
     PropertyRead,
     PropertyUpdate,
     Yad2ImportPreview,
@@ -218,6 +219,47 @@ async def bulk_delete(
         affected += 1
     await session.commit()
     return BulkResult(affected=affected, not_found=not_found)
+
+
+@router.get("/photo-summaries", response_model=list[PropertyPhotoSummary])
+async def list_photo_summaries(session: SessionDep) -> list[PropertyPhotoSummary]:
+    """One row per property that has at least one photo, with count + first thumb.
+
+    Used by the properties listing page to render a thumbnail next to each
+    row without an N+1 fetch. Properties with zero photos are simply absent.
+    """
+    counts_q = select(
+        CloudPhoto.property_id,
+        func.count(CloudPhoto.id).label("count"),
+    ).group_by(CloudPhoto.property_id)
+    counts = {
+        row.property_id: row.count
+        for row in (await session.execute(counts_q)).all()
+    }
+    if not counts:
+        return []
+
+    first_q = (
+        select(
+            CloudPhoto.property_id,
+            CloudPhoto.thumbnail_url,
+            CloudPhoto.web_view_url,
+        )
+        .order_by(CloudPhoto.property_id, CloudPhoto.created_at.desc())
+        .distinct(CloudPhoto.property_id)
+    )
+    first_thumbs: dict[uuid.UUID, str | None] = {
+        row.property_id: row.thumbnail_url or row.web_view_url
+        for row in (await session.execute(first_q)).all()
+    }
+    return [
+        PropertyPhotoSummary(
+            property_id=pid,
+            count=counts[pid],
+            first_thumbnail=first_thumbs.get(pid),
+        )
+        for pid in counts
+    ]
 
 
 @router.get("/{property_id}", response_model=PropertyRead)
