@@ -47,5 +47,13 @@ class Settings(BaseSettings):
     # Send a digest once a subscriber has this many unseen matching properties.
     newsletter_digest_threshold: int = 3
 
+    # OpenAI for content translation (properties / blog / neighborhoods into
+    # ES, FR, HE). Empty = no-op (sync logs would-be calls, no Postgres writes).
+    openai_api_key: str = ""
+    openai_translate_model: str = "gpt-4o-mini"
+
+    # WP REST base used by the translation sync service to source content.
+    wp_rest_base: str = "https://realestateadmin2025.classicjerusalem.com/wp-json/wp/v2"
+
 
 settings = Settings()

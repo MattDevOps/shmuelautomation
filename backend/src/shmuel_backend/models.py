@@ -280,3 +280,39 @@ class OAuthState(Base):
     state: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     provider: Mapped[str] = mapped_column(String(32))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class ContentTranslation(Base):
+    """Translations of WP-sourced content (properties, blog posts, neighborhoods)
+    into ES/FR/HE. One row per (content_type, content_slug, lang, field).
+
+    `source_hash` is sha256 of the source English field value at translation time;
+    sync uses it to detect when WP content has changed and re-translation is needed.
+    """
+
+    __tablename__ = "content_translations"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    # property | blog | neighborhood
+    content_type: Mapped[str] = mapped_column(String(20), index=True)
+    content_slug: Mapped[str] = mapped_column(String(255), index=True)
+    lang: Mapped[str] = mapped_column(String(8), index=True)  # es | fr | he
+    # title | description_p1 | description_p2 | more_info_0 | ...
+    field: Mapped[str] = mapped_column(String(64))
+    value: Mapped[str] = mapped_column(Text)
+    source_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "content_type", "content_slug", "lang", "field",
+            name="uq_content_translations_lookup",
+        ),
+        Index(
+            "ix_content_translations_lookup",
+            "content_type", "content_slug", "lang",
+        ),
+    )

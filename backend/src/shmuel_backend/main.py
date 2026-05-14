@@ -31,6 +31,8 @@ from shmuel_backend.queue_routes import compose_router
 from shmuel_backend.queue_routes import router as queue_router
 from shmuel_backend.schemas import SystemStatus
 from shmuel_backend.sentry import configure_sentry
+from shmuel_backend.translations import admin_router as translations_admin_router
+from shmuel_backend.translations import public_router as translations_public_router
 
 configure_logging(settings.environment)
 configure_sentry()
@@ -83,6 +85,8 @@ app.include_router(compose_router)
 app.include_router(groups_router)
 app.include_router(newsletter_public_router)
 app.include_router(newsletter_admin_router)
+app.include_router(translations_public_router)
+app.include_router(translations_admin_router)
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
