@@ -44,10 +44,12 @@ def _prop(
     )
 
 
+_LANG = os.environ.get("LANG_OVERRIDE", "en")
+
 sub = NewsletterSubscriber(
     id=uuid.uuid4(),
     email="preview@example.com",
-    language="en",
+    language=_LANG,
     confirmation_token="confirm-token",
     unsubscribe_token="unsub-token",
     confirmed_at=datetime.utcnow(),

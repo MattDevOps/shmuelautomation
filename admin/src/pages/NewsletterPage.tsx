@@ -5,6 +5,7 @@ import {
   type NewsletterSubscriber,
   type SubscriberListResponse,
 } from '../api/newsletter'
+import DigestPreviewModal from '../components/DigestPreviewModal'
 
 function fmt(iso: string | null): string {
   if (!iso) return '—'
@@ -27,6 +28,7 @@ export default function NewsletterPage() {
   const [data, setData] = useState<SubscriberListResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [reloadTick, setReloadTick] = useState(0)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const reload = (): void => setReloadTick((t) => t + 1)
 
   useEffect(() => {
@@ -71,12 +73,21 @@ export default function NewsletterPage() {
           <button
             type="button"
             className="btn"
+            onClick={() => setPreviewOpen(true)}
+          >
+            Preview next digest
+          </button>
+          <button
+            type="button"
+            className="btn"
             onClick={reload}
           >
             Refresh
           </button>
         </div>
       </header>
+
+      <DigestPreviewModal open={previewOpen} onClose={() => setPreviewOpen(false)} />
 
       {error && (
         <p role="alert" className="error">

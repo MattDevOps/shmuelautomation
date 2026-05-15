@@ -33,3 +33,30 @@ export function listSubscribers(): Promise<SubscriberListResponse> {
 export function deleteSubscriber(id: string): Promise<void> {
   return request<void>(`/newsletter/subscribers/${id}`, { method: 'DELETE' })
 }
+
+export interface PreviewOptions {
+  language?: 'en' | 'he'
+  type_filter?: SubscriberPreference
+  limit?: number
+}
+
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const API_KEY = import.meta.env.VITE_API_KEY ?? ''
+
+/**
+ * Fetch the rendered digest HTML for the admin preview modal. Routes
+ * through fetch directly (not the `request()` JSON helper) because the
+ * endpoint returns text/html, but still attaches X-API-Key.
+ */
+export async function previewDigestHtml(opts: PreviewOptions = {}): Promise<string> {
+  const params = new URLSearchParams()
+  if (opts.language) params.set('language', opts.language)
+  if (opts.type_filter) params.set('type_filter', opts.type_filter)
+  if (opts.limit) params.set('limit', String(opts.limit))
+  const qs = params.toString() ? `?${params.toString()}` : ''
+  const headers: Record<string, string> = {}
+  if (API_KEY) headers['x-api-key'] = API_KEY
+  const r = await fetch(`${API_URL}/newsletter/preview${qs}`, { headers })
+  if (!r.ok) throw new Error(`Preview failed: ${r.status}`)
+  return r.text()
+}

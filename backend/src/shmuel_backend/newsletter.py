@@ -237,6 +237,87 @@ async def delete_subscriber(
     await session.commit()
 
 
+@admin_router.get("/preview", response_class=HTMLResponse)
+async def preview_digest(
+    session: SessionDep,
+    language: str = "en",
+    type_filter: str = "both",
+    limit: int = 5,
+) -> HTMLResponse:
+    """Render the digest a hypothetical subscriber would receive if a
+    threshold-crossing send fired right now. No DB writes, no email sent.
+
+    `language` is "en" or "he"; `type_filter` is "rent", "sale", or "both";
+    `limit` caps the number of latest AVAILABLE properties (matching the
+    type filter) shown in the preview. The renderer is the same code path
+    real subscribers hit, so this is an honest dry-run.
+    """
+    if language not in ("en", "he"):
+        raise HTTPException(status_code=422, detail="language must be 'en' or 'he'")
+    try:
+        pref = SubscriberPreference(type_filter)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="type_filter must be 'rent', 'sale', or 'both'",
+        ) from exc
+    if limit < 1 or limit > 20:
+        raise HTTPException(status_code=422, detail="limit must be 1..20")
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    sub = NewsletterSubscriber(
+        id=uuid.uuid4(),
+        email="preview@classicjerusalem.com",
+        language=language,
+        type_filter=pref,
+        confirmation_token="preview-confirm",
+        unsubscribe_token="preview-unsub",
+        confirmed_at=now,
+        unsubscribed_at=None,
+        last_digest_at=None,
+        source="preview",
+        created_at=now,
+    )
+
+    type_clause = _matching_property_filter(pref)
+    rows = list(
+        (
+            await session.execute(
+                select(Property)
+                .where(Property.status == PropertyStatus.AVAILABLE, type_clause)
+                .order_by(Property.created_at.desc())
+                .limit(limit)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    if not rows:
+        empty_msg = (
+            "אין כרגע נכסים זמינים שתואמים את הסינון. "
+            "הוספת נכסים חדשים תאפשר תצוגה מקדימה אמיתית."
+            if language == "he"
+            else (
+                "No available properties match this filter yet. "
+                "Add some listings to see a real preview."
+            )
+        )
+        return HTMLResponse(
+            content=(
+                f'<!doctype html><html lang="{language}">'
+                f'<head><meta charset="utf-8"/><title>Preview</title></head>'
+                f'<body style="font-family:Georgia,serif;max-width:480px;margin:80px auto;'
+                f'padding:24px;text-align:center;color:#23241f;background:#faf6ef;">'
+                f"<p>{empty_msg}</p></body></html>"
+            )
+        )
+
+    photos_by_property = await _photos_for(session, [p.id for p in rows])
+    rendered = render_digest(sub, rows, photos_by_property)
+    return HTMLResponse(content=rendered.html)
+
+
 # ---------------------------------------------------------------------------
 # Digest dispatch
 # ---------------------------------------------------------------------------
