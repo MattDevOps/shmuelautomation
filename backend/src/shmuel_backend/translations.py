@@ -12,6 +12,7 @@ calls per page to merge translated fields into its WP-sourced data.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 from collections import defaultdict
@@ -25,7 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shmuel_backend.config import settings
-from shmuel_backend.db import get_session
+from shmuel_backend.db import SessionLocal, get_session
 from shmuel_backend.models import ContentTranslation
 from shmuel_backend.translation_client import translate
 
@@ -164,6 +165,21 @@ async def _fetch_wp(content_type: str) -> list[dict[str, Any]]:
     return out
 
 
+class _passthrough:
+    """Async-context wrapper around an already-open session — lets sync code
+    use a single `async with` whether we created the session here or got one
+    from a test fixture. The wrapped session is never closed."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def __aenter__(self) -> AsyncSession:
+        return self._session
+
+    async def __aexit__(self, *exc_info: object) -> None:
+        return None
+
+
 async def _existing_hashes(
     session: AsyncSession,
     content_type: str,
@@ -222,20 +238,34 @@ async def _upsert(
     else:
         existing.value = value
         existing.source_hash = source_hash
+    # Flush each row immediately so the session never accumulates pending
+    # writes that would be autoflushed on the NEXT _upsert's SELECT — that
+    # cascade is what hits Supabase's statement timeout under a long sync.
+    await session.flush()
 
 
 async def sync_translations(
-    session: AsyncSession,
+    session: AsyncSession | None = None,
     *,
     content_types: tuple[str, ...] = CONTENT_TYPES,
     target_langs: tuple[str, ...] = TARGET_LANGS,
 ) -> SyncResult:
     """Run a full sync: fetch WP content, translate new/changed fields.
 
+    Opens a fresh DB session per item (vs. holding one across the whole run)
+    so the connection isn't tied up across slow OpenAI awaits — Supabase's
+    transaction pooler cycles long-idle sessions and would otherwise blow
+    the statement timeout. The `session` parameter is ignored at runtime and
+    exists only for tests that want to override SessionLocal via dependency
+    overrides; production paths always use a fresh session per item.
+
     Idempotent — re-running with no source changes is a no-op (matched hashes
     are skipped). Translation failures for individual fields are logged and
     counted; one bad field doesn't block the rest of the run.
     """
+    # Tests pass an in-memory session; reuse it for the whole run so the
+    # rollback at fixture teardown sees everything. Prod uses fresh sessions.
+    test_session = session
     started = datetime.now(UTC)
     per_type: list[SyncStats] = []
     for ct in content_types:
@@ -248,13 +278,22 @@ async def sync_translations(
             per_type.append(stats)
             continue
         stats.fetched = len(items)
-        existing = await _existing_hashes(session, ct)
+
+        # Load the existing-hashes map once, with a short-lived session.
+        if test_session is not None:
+            existing = await _existing_hashes(test_session, ct)
+        else:
+            async with SessionLocal() as s:
+                existing = await _existing_hashes(s, ct)
+
         extractor = EXTRACTORS[ct]
-        for item in items:
+        log.info("  %s: %d items to process", ct, len(items))
+        for idx, item in enumerate(items, start=1):
             slug = item.get("slug")
             if not slug:
                 continue
             fields = extractor(item)
+            tasks: list[tuple[str, str, str, str, bool]] = []
             for field, source_text in fields.items():
                 source_hash = _hash_source(_strip_html(source_text))
                 for lang in target_langs:
@@ -262,33 +301,53 @@ async def sync_translations(
                         stats.skipped += 1
                         continue
                     is_refresh = (slug, lang, field) in existing
-                    try:
-                        translated = await translate(text=source_text, target_lang=lang)
-                    except Exception as exc:  # noqa: BLE001 — translate() shouldn't raise but be safe
+                    tasks.append((field, source_text, source_hash, lang, is_refresh))
+            if not tasks:
+                continue
+
+            # OpenAI calls run WITHOUT any DB session held — the connection
+            # was returned to the pool when _existing_hashes finished.
+            results = await asyncio.gather(
+                *(translate(text=t[1], target_lang=t[3]) for t in tasks),
+                return_exceptions=True,
+            )
+
+            # Open a fresh session JUST for the upserts (sub-second total).
+            write_session_ctx = (
+                _passthrough(test_session) if test_session is not None else SessionLocal()
+            )
+            async with write_session_ctx as s:
+                for (field, _source_text, source_hash, lang, is_refresh), result in zip(
+                    tasks, results, strict=True,
+                ):
+                    if isinstance(result, BaseException):
                         log.warning(
                             "translate raised for %s/%s/%s/%s: %s",
-                            ct, slug, lang, field, exc,
+                            ct, slug, lang, field, result,
                         )
                         stats.errors += 1
                         continue
-                    if translated is None:
-                        # No-op (no API key) or remote failure — log and move on.
+                    if result is None:
                         stats.errors += 1
                         continue
                     await _upsert(
-                        session,
+                        s,
                         content_type=ct,
                         content_slug=slug,
                         lang=lang,
                         field=field,
-                        value=translated,
+                        value=result,
                         source_hash=source_hash,
                     )
                     if is_refresh:
                         stats.refreshed += 1
                     else:
                         stats.translated += 1
-        await session.commit()
+                await s.commit()
+
+            for field, _src, source_hash, lang, _ in tasks:
+                existing[(slug, lang, field)] = source_hash
+            log.info("    [%d/%d] %s: %d translations written", idx, len(items), slug, len(tasks))
         per_type.append(stats)
         log.info(
             "Translation sync %s: fetched=%d translated=%d refreshed=%d skipped=%d errors=%d",
@@ -364,7 +423,11 @@ admin_router = APIRouter(prefix="/translations", tags=["translations"])
 
 
 @admin_router.post("/sync", response_model=SyncResult)
-async def trigger_sync(session: SessionDep) -> SyncResult:
+async def trigger_sync() -> SyncResult:
     """Run a full translation sync now. Safe to call repeatedly — unchanged
-    fields are skipped via source-hash comparison."""
-    return await sync_translations(session)
+    fields are skipped via source-hash comparison.
+
+    No session dep — sync_translations() opens its own fresh sessions per item
+    so a long sync doesn't tie one connection up across slow OpenAI awaits.
+    """
+    return await sync_translations()
