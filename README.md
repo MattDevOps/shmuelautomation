@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/MattDevOps/shmuelautomation/actions/workflows/ci.yml/badge.svg)](https://github.com/MattDevOps/shmuelautomation/actions/workflows/ci.yml)
 
-Monorepo for **Classic Jerusalem Realty**'s property CMS + automation platform. Single user (Shmuel, a Jerusalem real estate broker); WordPress public site at **classicjerusalem.com** consumes the backend's public read API.
+Monorepo for **Classic Jerusalem Realty**'s property CMS + automation platform. Single user (Shmuel, a Jerusalem real estate broker). The public site **classicjerusalem.com** is a Next.js 16 app (separate repo at `classic-jerusalem-frontend/`, cut over from Frontity on 2026-05-14) that consumes both the WordPress REST surface and this backend's public API. A WordPress installation at `realestateadmin2025.classicjerusalem.com` still hosts the CMS for property/blog/neighborhood content; the WP plugin ships if Shmuel ever wants to roll back to a WP-rendered public site.
 
 ```
 client/             # client-facing scope/proposal/checklist docs + Shmuel synopsis
@@ -30,6 +30,13 @@ notes.md            # internal project notes
 - **Post composition**: Hebrew + English templates with tabular price, photo URL, Yad2 link.
 - **One-tap share modal**: pre-composed text, language toggle, copy-to-clipboard, Open WhatsApp (`wa.me`), Share to Facebook, and per-group "copy & open ↗" jump links that copy the post text and open the destination in a new tab.
 - **Configurable group lists**: WhatsApp / WhatsApp Status / Facebook / Janglo / other, tagged for rent / sale / both. Shmuel curates the destinations from the admin.
+- **Webot WhatsApp integration** (no-op pending token): `webot_client.py` wraps webot.co.il's REST API for `/sendMessage`, `/getGroups`, `/checkStatus`. `/webot/status` admin endpoint surfaces connection health. `auto_poster.dispatch_slot(slot)` is the Phase 2 trigger that posts a queued slot to every active matching WhatsApp group. Activates by setting `WEBOT_API_TOKEN` + `WEBOT_FROM_PHONE` in Cloud Run secrets.
+
+### Phase 3 — partial (newsletter + i18n done; chatbot pending)
+
+- **Newsletter**: double opt-in subscribers, branded HTML digests in EN/HE via Resend, threshold-based digest triggers (default: 3 new matching properties), rent/sale/both filter, one-click unsubscribe. Signup form on the public Next.js site (`SubscribeFloater` → `/api/subscribe/` → backend) captures language + rent/sale preference at signup.
+- **Multi-language public site**: Next.js rebuild serves 4 locales (EN default, ES, FR, HE) with hreflang alternates and a 664-URL sitemap. WP content (properties, blogs, neighborhoods) translated to ES/FR/HE via OpenAI gpt-4o-mini and served from `content_translations` in Supabase; chrome strings localized via `messages/{en,es,fr,he}.json` + a client-side `LocaleProvider`/`useT()` hook. Backfill produced ~3,000 translation rows.
+- **Pending**: AI WhatsApp chatbot (blocked on Shmuel's Meta Business onboarding decision), call/WhatsApp → CRM summarization (not started).
 
 ## Infrastructure
 
@@ -84,30 +91,58 @@ GOOGLE_OAUTH_CLIENT_SECRET=GOCSPX-...
 GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8000/auth/google/callback
 
 ADMIN_REDIRECT_URI=http://localhost:5173/settings
+
+# Resend for transactional email (newsletter confirmation + digests).
+# Empty = no-op (subscribe still records the row, the email just doesn't
+# go out — keeps local dev painless).
+RESEND_API_KEY=
+
+# OpenAI for property/blog/neighborhood translation backfill.
+# Empty = sync logs would-be calls and no Postgres writes happen.
+OPENAI_API_KEY=
+OPENAI_TRANSLATE_MODEL=gpt-4o-mini
+
+# Webot WhatsApp delivery (Phase 2). Both must be set for /webot/status
+# to report reachable and auto_poster to dispatch. Empty = no-op.
+WEBOT_API_TOKEN=
+WEBOT_FROM_PHONE=
 ```
 
 ## Testing
 
 | Layer | Command | Counts |
 | --- | --- | --- |
-| Backend unit | `cd backend && uv run pytest` | 107 tests |
+| Backend unit | `cd backend && uv run pytest` | 234 tests |
 | Admin unit | `cd admin && npm test` | 92 tests |
 | Admin E2E | `cd admin && npm run test:e2e` | 3 flows (Properties / Yad2 import / Queue→share) |
+| Frontend (Next.js) typecheck | `cd classic-jerusalem-frontend && npx tsc --noEmit` | |
 | Backend lint | `cd backend && uv run ruff check .` | |
 | Admin lint | `cd admin && npm run lint` | |
 
 E2E mocks third-party services (WhatsApp, Yad2, Facebook, Google Drive, Dropbox) via `page.route` — never hits live APIs from tests. CI runs all of the above on every push and PR.
 
-## Public API (for the WordPress site)
+## Public API
 
-The backend exposes a small public, unauthenticated read API under `/public/*` that **classicjerusalem.com** can pull from. Internal fields (owner phone, broker fee terms, internal notes) never appear in this payload, and rented/sold inventory is hidden by default.
+The backend exposes a small public, unauthenticated read API under `/public/*` for both the Next.js rebuild and any other client. Internal fields (owner phone, broker fee terms, internal notes) never appear in this payload, and rented/sold inventory is hidden by default.
 
 | Endpoint | Returns |
 | --- | --- |
 | `GET /public/properties?type=rent&neighborhood=Baka&limit=20&offset=0` | `{ items: [...], total, limit, offset }` |
 | `GET /public/properties/{id}` | A single available property |
+| `GET /public/translations?content_type=property&slugs=a,b,c&lang=he` | Per-slug field translations for ES/FR/HE |
+| `POST /public/newsletter/subscribe` | Double-opt-in signup; emits confirmation email via Resend |
+| `GET /public/newsletter/confirm/{token}` | Click-through from confirmation email |
+| `GET /public/newsletter/unsubscribe/{token}` | One-click unsubscribe |
 
-Both responses include `Cache-Control: public, max-age=60`, and the WordPress plugin holds the parsed result in a 60s transient on top, so the backend gets at most one request per minute per shortcode variant.
+Property responses include `Cache-Control: public, max-age=60`. The WordPress plugin (kept for rollback) holds parsed results in a 60s transient. The Next.js rebuild relies on Next's built-in fetch cache.
+
+### Admin API (X-API-Key gated, behind Cloudflare Access in production)
+
+| Endpoint | Returns |
+| --- | --- |
+| `POST /translations/sync` | Idempotent full translation sync (WP → OpenAI → Supabase) |
+| `GET /webot/status` | Webot integration health: `{configured, from_phone, reachable, detail}` |
+| `GET /newsletter/subscribers` | Subscriber list + stats for the admin newsletter page |
 
 The repo ships an installable WordPress plugin in `wordpress-plugin/`:
 

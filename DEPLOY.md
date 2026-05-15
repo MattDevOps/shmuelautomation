@@ -72,7 +72,16 @@ echo -n "VALUE_FROM_LOCAL_DOTENV"  | gcloud secrets create encryption-key --data
 echo -n "VALUE_FROM_GCP_OAUTH"     | gcloud secrets create google-oauth-client-id --data-file=-
 echo -n "VALUE_FROM_GCP_OAUTH"     | gcloud secrets create google-oauth-client-secret --data-file=-
 echo -n "VALUE_FROM_SUPABASE"      | gcloud secrets create database-url --data-file=-
+echo -n "VALUE_FROM_RESEND"        | gcloud secrets create resend-api-key --data-file=-
+echo -n "VALUE_FROM_OPENAI"        | gcloud secrets create openai-api-key --data-file=-
+# Webot secrets are only needed once Shmuel signs up for webot.co.il +
+# generates an API token. Until then, the backend no-ops gracefully on
+# the webot path. Create empty placeholders OR omit from `--set-secrets`.
+echo -n ""                         | gcloud secrets create webot-api-token --data-file=-
+echo -n ""                         | gcloud secrets create webot-from-phone --data-file=-
 ```
+
+Each secret then needs `roles/secretmanager.secretAccessor` granted to the runtime SA (default compute SA, `<project-number>-compute@developer.gserviceaccount.com` — see §2.5 in DEPLOY.md history for the exact `gcloud secrets add-iam-policy-binding` invocation if not already done).
 
 ### 1.4 Deploy
 
@@ -89,7 +98,7 @@ gcloud run deploy classic-jerusalem-realty-api \
   --cpu 1 \
   --port 8000 \
   --set-env-vars "ENVIRONMENT=production,CORS_ORIGINS=[\"https://admin.classicjerusalem.com\"],GOOGLE_OAUTH_REDIRECT_URI=https://api.classicjerusalem.com/auth/google/callback,ADMIN_REDIRECT_URI=https://admin.classicjerusalem.com/settings" \
-  --set-secrets "ENCRYPTION_KEY=encryption-key:latest,GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest,DATABASE_URL=database-url:latest,BACKEND_API_KEY=backend-api-key:latest"
+  --set-secrets "ENCRYPTION_KEY=encryption-key:latest,GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest,DATABASE_URL=database-url:latest,BACKEND_API_KEY=backend-api-key:latest,RESEND_API_KEY=resend-api-key:latest,OPENAI_API_KEY=openai-api-key:latest,WEBOT_API_TOKEN=webot-api-token:latest,WEBOT_FROM_PHONE=webot-from-phone:latest"
 ```
 
 > If this is the very first deploy and you haven't yet created `backend-api-key` in Secret Manager (§1.6 covers it), drop that one entry from `--set-secrets` and re-run after creating it. The middleware no-ops when the env var is empty, so the service starts fine either way.
@@ -354,11 +363,40 @@ goes out — same graceful no-op pattern Sentry uses.
    ```
    Then push (or trigger a redeploy of `deploy-backend.yml`) — Cloud Run
    will pick up the new secret on the next revision.
-4. From the WordPress side, drop `[classic_newsletter]` into a page (or
-   the footer widget) so visitors can sign up.
+4. The Next.js rebuild's `SubscribeFloater` is the primary signup
+   surface (visible on every page of classicjerusalem.com); it captures
+   language + rent/sale preference at signup. The legacy
+   `[classic_newsletter]` WP shortcode is kept for rollback but isn't
+   placed on the public site since the rebuild went live.
 
 Tweak `NEWSLETTER_DIGEST_THRESHOLD` later if 3 turns out to be too
 chatty or too quiet — it's a single env var change, no code redeploy.
+
+## 5.1 OpenAI — content translation (optional)
+
+The public site serves 4 locales (EN/ES/FR/HE). Property descriptions, blog
+posts, and neighborhood content are translated via OpenAI gpt-4o-mini and
+cached in Supabase's `content_translations` table. Without `OPENAI_API_KEY`,
+`/translations/sync` logs would-be calls but writes nothing; non-English
+pages render English fallbacks.
+
+- One-time: `echo -n "sk-proj-..." | gcloud secrets create openai-api-key --data-file=-` (already in §1.3 if you ran the full setup) + grant runtime SA `secretAccessor`.
+- Run a backfill from your laptop: `cd backend && uv run python scripts/translate_backfill.py` (uses the same `sync_translations()` the admin endpoint uses). Idempotent.
+- Or hit `POST /translations/sync` against the live backend after deploy.
+
+## 5.2 Webot — WhatsApp delivery (optional, Phase 2)
+
+Once Shmuel signs up for webot.co.il and mints an API token, set the secret
++ from-phone-number in Cloud Run. `/webot/status` will flip to `reachable=true`
+and `auto_poster.dispatch_slot()` becomes wirable into the scheduler.
+
+```bash
+echo -n "WEBOT_BEARER_TOKEN" | gcloud secrets versions add webot-api-token --data-file=-
+echo -n "972559662779"        | gcloud secrets versions add webot-from-phone --data-file=-
+gcloud run services update classic-jerusalem-realty-api --region europe-west1   # forces fresh revision
+curl -sH "x-api-key: $BACKEND_API_KEY" https://api.classicjerusalem.com/webot/status
+# {"configured":true,"from_phone":"972559662779","reachable":true,"detail":{...}}
+```
 
 ## 6. Smoke test
 
