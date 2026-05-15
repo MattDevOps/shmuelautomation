@@ -55,5 +55,12 @@ class Settings(BaseSettings):
     # WP REST base used by the translation sync service to source content.
     wp_rest_base: str = "https://realestateadmin2025.classicjerusalem.com/wp-json/wp/v2"
 
+    # Webot.co.il WhatsApp bulk-sender. Empty token = no-op (calls are logged
+    # but no real HTTP request goes out). Shmuel pays for webot separately;
+    # this lets the codebase ship before he generates a token.
+    webot_api_token: str = ""
+    webot_from_phone: str = ""
+    webot_api_base_url: str = "https://api.webot.co.il/api/v1"
+
 
 settings = Settings()
