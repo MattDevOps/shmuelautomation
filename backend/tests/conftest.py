@@ -13,7 +13,13 @@ from shmuel_backend.main import app
 
 @pytest.fixture(autouse=True)
 def _cloud_settings(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Provide test-only OAuth and encryption settings for every test."""
+    """Provide test-only OAuth and encryption settings for every test.
+
+    Also clears third-party API keys by default so tests don't accidentally
+    inherit a developer's local .env (e.g. RESEND_API_KEY=re_...) and start
+    making real HTTP calls or fail "no-op" assertions. Tests that need a
+    specific key set opt in via a fixture (with_resend_key, etc.).
+    """
     monkeypatch.setattr(settings, "encryption_key", Fernet.generate_key().decode())
     monkeypatch.setattr(settings, "google_oauth_client_id", "test-client-id")
     monkeypatch.setattr(settings, "google_oauth_client_secret", "test-secret")
@@ -25,6 +31,11 @@ def _cloud_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         settings, "admin_redirect_uri", "http://localhost:5173/settings"
     )
+    # Third-party integrations default to unconfigured under tests.
+    monkeypatch.setattr(settings, "resend_api_key", "")
+    monkeypatch.setattr(settings, "openai_api_key", "")
+    monkeypatch.setattr(settings, "webot_api_token", "")
+    monkeypatch.setattr(settings, "webot_from_phone", "")
 
 
 @pytest_asyncio.fixture
