@@ -1,0 +1,6 @@
+node_modules
+.env
+.env.local
+auth_state/
+*.log
+dist
