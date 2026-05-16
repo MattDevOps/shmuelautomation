@@ -11,6 +11,49 @@ function jsonResponse(body: unknown, status = 200): Response {
   })
 }
 
+const WHATSAPP_UNCONFIGURED = {
+  configured: false,
+  reachable: false,
+  connection_state: null,
+  paired_phone: null,
+  last_connected_at: null,
+  last_disconnect_reason: null,
+}
+
+// SettingsPage now mounts both the cloud-status panel and the WhatsApp
+// pairing panel, each with their own fetch. Route by URL so test order
+// of arrival doesn't matter.
+function routeFetch(
+  fetchSpy: ReturnType<typeof vi.spyOn>,
+  cloudBody: unknown,
+  disconnectBody: Response | null = null,
+): void {
+  let disconnected = false
+  fetchSpy.mockImplementation(async (input: RequestInfo | URL, init) => {
+    const url = typeof input === 'string' ? input : input.toString()
+    if (url.includes('/whatsapp/qr')) {
+      return jsonResponse({ qrPng: null })
+    }
+    if (url.includes('/whatsapp/status')) {
+      return jsonResponse(WHATSAPP_UNCONFIGURED)
+    }
+    if (url.includes('/auth/google/disconnect') && init?.method === 'POST') {
+      disconnected = true
+      return disconnectBody ?? new Response(null, { status: 204 })
+    }
+    // /auth/google/status — flip to disconnected once /disconnect ran.
+    if (disconnected) {
+      return jsonResponse({
+        provider: 'google_drive',
+        connected: false,
+        account_email: null,
+        root_folder_name: null,
+      })
+    }
+    return jsonResponse(cloudBody)
+  })
+}
+
 function renderPage(initialEntry = '/settings') {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
@@ -29,14 +72,12 @@ describe('SettingsPage', () => {
   })
 
   it('shows Connect Google Drive when not connected', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      jsonResponse({
-        provider: 'google_drive',
-        connected: false,
-        account_email: null,
-        root_folder_name: null,
-      }),
-    )
+    routeFetch(fetchSpy, {
+      provider: 'google_drive',
+      connected: false,
+      account_email: null,
+      root_folder_name: null,
+    })
     renderPage()
 
     const link = await screen.findByRole('link', { name: /connect google drive/i })
@@ -44,14 +85,12 @@ describe('SettingsPage', () => {
   })
 
   it('shows account info + Disconnect when connected', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      jsonResponse({
-        provider: 'google_drive',
-        connected: true,
-        account_email: 'shmuel@example.com',
-        root_folder_name: 'Classic Jerusalem Realty',
-      }),
-    )
+    routeFetch(fetchSpy, {
+      provider: 'google_drive',
+      connected: true,
+      account_email: 'shmuel@example.com',
+      root_folder_name: 'Classic Jerusalem Realty',
+    })
     renderPage()
 
     expect(await screen.findByText(/shmuel@example\.com/)).toBeInTheDocument()
@@ -62,16 +101,12 @@ describe('SettingsPage', () => {
   })
 
   it('disconnects after confirm and updates status', async () => {
-    fetchSpy
-      .mockResolvedValueOnce(
-        jsonResponse({
-          provider: 'google_drive',
-          connected: true,
-          account_email: 'shmuel@example.com',
-          root_folder_name: 'X',
-        }),
-      )
-      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    routeFetch(fetchSpy, {
+      provider: 'google_drive',
+      connected: true,
+      account_email: 'shmuel@example.com',
+      root_folder_name: 'X',
+    })
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderPage()
 
@@ -87,14 +122,12 @@ describe('SettingsPage', () => {
   })
 
   it('shows success flash when redirected with cloud_connected', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      jsonResponse({
-        provider: 'google_drive',
-        connected: true,
-        account_email: 'a@b',
-        root_folder_name: 'X',
-      }),
-    )
+    routeFetch(fetchSpy, {
+      provider: 'google_drive',
+      connected: true,
+      account_email: 'a@b',
+      root_folder_name: 'X',
+    })
     renderPage('/settings?cloud_connected=1')
     expect(await screen.findByRole('status')).toHaveTextContent(
       /google drive connected/i,
@@ -102,14 +135,12 @@ describe('SettingsPage', () => {
   })
 
   it('shows error flash when redirected with cloud_error', async () => {
-    fetchSpy.mockResolvedValueOnce(
-      jsonResponse({
-        provider: 'google_drive',
-        connected: false,
-        account_email: null,
-        root_folder_name: null,
-      }),
-    )
+    routeFetch(fetchSpy, {
+      provider: 'google_drive',
+      connected: false,
+      account_email: null,
+      root_folder_name: null,
+    })
     renderPage('/settings?cloud_error=access_denied')
     expect(await screen.findByRole('alert')).toHaveTextContent(/access_denied/i)
   })

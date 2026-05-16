@@ -230,6 +230,19 @@ export interface SystemStatus {
   groups_active: number
 }
 
+export interface WhatsappStatus {
+  configured: boolean
+  reachable: boolean
+  connection_state: string | null
+  paired_phone: string | null
+  last_connected_at: string | null
+  last_disconnect_reason: string | null
+}
+
+export interface WhatsappQr {
+  qrPng: string | null
+}
+
 export interface CloudPhoto {
   id: string
   property_id: string

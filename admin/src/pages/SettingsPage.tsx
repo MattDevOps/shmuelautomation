@@ -6,6 +6,7 @@ import {
   getCloudStatus,
 } from '../api/cloud'
 import type { CloudConnectionStatus } from '../api/types'
+import WhatsappPairingPanel from '../components/WhatsappPairingPanel'
 
 export default function SettingsPage() {
   const [params, setParams] = useSearchParams()
@@ -136,6 +137,14 @@ export default function SettingsPage() {
           </a>
         </div>
       )}
+
+      <h2>WhatsApp delivery</h2>
+      <p className="muted">
+        Posts to WhatsApp groups go through a self-hosted daemon paired with
+        your phone. Pair it once by scanning a QR; the session persists across
+        daemon restarts.
+      </p>
+      <WhatsappPairingPanel />
     </section>
   )
 }

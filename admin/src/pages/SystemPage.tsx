@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getSystemStatus } from '../api/system'
-import type { SystemStatus } from '../api/types'
+import { getWhatsappStatus } from '../api/whatsapp'
+import type { SystemStatus, WhatsappStatus } from '../api/types'
 
 export default function SystemPage() {
   const [status, setStatus] = useState<SystemStatus | null>(null)
+  const [whatsapp, setWhatsapp] = useState<WhatsappStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [reloadTick, setReloadTick] = useState(0)
 
@@ -20,6 +22,15 @@ export default function SystemPage() {
         if (cancelled) return
         setStatus(null)
         setError(e.message)
+      })
+    // WhatsApp status is best-effort — a failure here shouldn't blank the
+    // whole page. Card just renders "unknown" if the call errors.
+    getWhatsappStatus()
+      .then((w) => {
+        if (!cancelled) setWhatsapp(w)
+      })
+      .catch(() => {
+        if (!cancelled) setWhatsapp(null)
       })
     return () => {
       cancelled = true
@@ -117,9 +128,62 @@ export default function SystemPage() {
             value={status.groups_active}
             sub={<Link to="/groups">Manage groups</Link>}
           />
+          <WhatsappCard whatsapp={whatsapp} />
         </div>
       )}
     </section>
+  )
+}
+
+function WhatsappCard({
+  whatsapp,
+}: {
+  whatsapp: WhatsappStatus | null
+}): React.ReactElement {
+  if (whatsapp === null) {
+    return (
+      <StatusCard
+        title="WhatsApp daemon"
+        ok={false}
+        value="Unknown"
+        sub={<Link to="/settings">Open settings</Link>}
+      />
+    )
+  }
+  if (!whatsapp.configured) {
+    return (
+      <StatusCard
+        title="WhatsApp daemon"
+        ok={false}
+        value="Not configured"
+        sub="WHATSAPP_DAEMON_URL not set"
+      />
+    )
+  }
+  if (!whatsapp.reachable) {
+    return (
+      <StatusCard
+        title="WhatsApp daemon"
+        ok={false}
+        value="Unreachable"
+        sub="Daemon is configured but not responding"
+      />
+    )
+  }
+  const connected = whatsapp.connection_state === 'connected'
+  return (
+    <StatusCard
+      title="WhatsApp daemon"
+      ok={connected}
+      value={connected ? 'Connected' : (whatsapp.connection_state ?? 'Unknown')}
+      sub={
+        connected ? (
+          (whatsapp.paired_phone ?? 'paired')
+        ) : (
+          <Link to="/settings">Pair phone</Link>
+        )
+      }
+    />
   )
 }
 
