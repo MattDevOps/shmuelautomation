@@ -24,7 +24,6 @@ from shmuel_backend.config import settings
 from shmuel_backend.enums import PropertyType
 from shmuel_backend.models import CloudPhoto, NewsletterSubscriber, Property
 
-
 # --- Brand constants -------------------------------------------------
 BRAND_NAME = "Classic Jerusalem Realty"
 BRAND_GREEN = "#17483b"      # primary brand

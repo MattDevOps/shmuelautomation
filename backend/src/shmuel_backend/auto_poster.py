@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from shmuel_backend import webot_client
 from shmuel_backend.compose import compose_post
 from shmuel_backend.config import settings
 from shmuel_backend.enums import (
@@ -37,7 +38,6 @@ from shmuel_backend.enums import (
     PropertyType,
 )
 from shmuel_backend.models import CloudPhoto, Group, PostSlot, Property
-from shmuel_backend import webot_client
 
 log = logging.getLogger(__name__)
 

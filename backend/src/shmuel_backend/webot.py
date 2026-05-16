@@ -11,8 +11,8 @@ from typing import Any
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from shmuel_backend.config import settings
 from shmuel_backend import webot_client
+from shmuel_backend.config import settings
 
 admin_router = APIRouter(prefix="/webot", tags=["webot"])
 

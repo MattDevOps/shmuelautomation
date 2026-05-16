@@ -66,9 +66,16 @@ WP_FIELDS = {
 }
 
 
+_WP_ENDPOINTS = {
+    "property": "/properties",
+    "blog": "/blog",
+    "neighborhood": "/neighborhood",
+}
+
+
 async def fetch_wp(http: httpx.AsyncClient, content_type: str) -> list[dict]:
     """Page through WP REST and return every item."""
-    endpoint = {"property": "/properties", "blog": "/blog", "neighborhood": "/neighborhood"}[content_type]
+    endpoint = _WP_ENDPOINTS[content_type]
     out: list[dict] = []
     page = 1
     while True:
@@ -132,7 +139,11 @@ def extract_neighborhood(p: dict) -> dict[str, str]:
     return out
 
 
-EXTRACTORS = {"property": extract_property, "blog": extract_blog, "neighborhood": extract_neighborhood}
+EXTRACTORS = {
+    "property": extract_property,
+    "blog": extract_blog,
+    "neighborhood": extract_neighborhood,
+}
 
 
 async def translate(http: httpx.AsyncClient, text: str, target_lang: str) -> str | None:
@@ -148,7 +159,12 @@ async def translate(http: httpx.AsyncClient, text: str, target_lang: str) -> str
             json={
                 "model": MODEL,
                 "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT.format(target_lang=LANG_NAMES[target_lang])},
+                    {
+                        "role": "system",
+                        "content": SYSTEM_PROMPT.format(
+                            target_lang=LANG_NAMES[target_lang],
+                        ),
+                    },
                     {"role": "user", "content": text},
                 ],
                 "temperature": 0.2,
@@ -159,7 +175,9 @@ async def translate(http: httpx.AsyncClient, text: str, target_lang: str) -> str
             log.warning("OpenAI %s: %s", r.status_code, r.text[:300])
             return None
         data = r.json()
-        return ((data.get("choices") or [{}])[0].get("message") or {}).get("content", "").strip() or None
+        choice = (data.get("choices") or [{}])[0]
+        content = (choice.get("message") or {}).get("content", "").strip()
+        return content or None
     except httpx.HTTPError as exc:
         log.warning("OpenAI request failed: %s", exc)
         return None
@@ -198,12 +216,16 @@ async def main() -> None:
             conn = await _connect()
             try:
                 existing_rows = await conn.fetch(
-                    "SELECT content_slug, lang, field, source_hash FROM content_translations WHERE content_type=$1",
+                    "SELECT content_slug, lang, field, source_hash"
+                    " FROM content_translations WHERE content_type=$1",
                     ct,
                 )
             finally:
                 await conn.close()
-            existing = {(r["content_slug"], r["lang"], r["field"]): r["source_hash"] for r in existing_rows}
+            existing = {
+                (r["content_slug"], r["lang"], r["field"]): r["source_hash"]
+                for r in existing_rows
+            }
             log.info("  existing rows for %s: %d", ct, len(existing))
 
             extractor = EXTRACTORS[ct]
@@ -237,7 +259,8 @@ async def main() -> None:
                 conn = await _connect()
                 try:
                     writes = 0
-                    for (field, _src, sh, lang, is_refresh), res in zip(tasks, results, strict=True):
+                    paired = zip(tasks, results, strict=True)
+                    for (field, _src, sh, lang, is_refresh), res in paired:
                         if isinstance(res, BaseException) or res is None:
                             stats["errors"] += 1
                             continue
