@@ -55,12 +55,11 @@ class Settings(BaseSettings):
     # WP REST base used by the translation sync service to source content.
     wp_rest_base: str = "https://realestateadmin2025.classicjerusalem.com/wp-json/wp/v2"
 
-    # Webot.co.il WhatsApp bulk-sender. Empty token = no-op (calls are logged
-    # but no real HTTP request goes out). Shmuel pays for webot separately;
-    # this lets the codebase ship before he generates a token.
-    webot_api_token: str = ""
-    webot_from_phone: str = ""
-    webot_api_base_url: str = "https://api.webot.co.il/api/v1"
+    # whatsapp-daemon — self-hosted Baileys daemon in `whatsapp-daemon/`.
+    # Empty URL = no-op (calls log "would have sent..." and return None).
+    # Token is a shared secret; daemon must be configured with the same value.
+    whatsapp_daemon_url: str = ""
+    whatsapp_daemon_token: str = ""
 
 
 settings = Settings()

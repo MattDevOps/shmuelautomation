@@ -33,7 +33,8 @@ from shmuel_backend.schemas import SystemStatus
 from shmuel_backend.sentry import configure_sentry
 from shmuel_backend.translations import admin_router as translations_admin_router
 from shmuel_backend.translations import public_router as translations_public_router
-from shmuel_backend.webot import admin_router as webot_admin_router
+from shmuel_backend.whatsapp import admin_router as whatsapp_admin_router
+from shmuel_backend.whatsapp import webhook_router as whatsapp_webhook_router
 
 configure_logging(settings.environment)
 configure_sentry()
@@ -88,7 +89,8 @@ app.include_router(newsletter_public_router)
 app.include_router(newsletter_admin_router)
 app.include_router(translations_public_router)
 app.include_router(translations_admin_router)
-app.include_router(webot_admin_router)
+app.include_router(whatsapp_admin_router)
+app.include_router(whatsapp_webhook_router)
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]

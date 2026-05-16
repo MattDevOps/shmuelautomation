@@ -34,8 +34,8 @@ def _cloud_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     # Third-party integrations default to unconfigured under tests.
     monkeypatch.setattr(settings, "resend_api_key", "")
     monkeypatch.setattr(settings, "openai_api_key", "")
-    monkeypatch.setattr(settings, "webot_api_token", "")
-    monkeypatch.setattr(settings, "webot_from_phone", "")
+    monkeypatch.setattr(settings, "whatsapp_daemon_url", "")
+    monkeypatch.setattr(settings, "whatsapp_daemon_token", "")
 
 
 @pytest_asyncio.fixture

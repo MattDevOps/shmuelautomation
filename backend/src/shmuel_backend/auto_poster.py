@@ -1,24 +1,13 @@
-"""Auto-posting for queued post slots via webot (Phase 2).
+"""Auto-posting for queued post slots via the WhatsApp daemon (Phase 2).
 
-Wires the scheduler/queue into webot WhatsApp delivery. Today the
-admin dashboard's queue shows pending slots and Shmuel taps "share"
-to fire the OS-native share sheet. With this module, once
-WEBOT_API_TOKEN + WEBOT_FROM_PHONE are set in the Cloud Run secrets,
-slots can be dispatched directly to webot for fully automated delivery
-to all active WhatsApp groups whose `audience` matches the property's
-rent/sale type.
+Wires the scheduler/queue into the Baileys-based whatsapp-daemon for
+fully automated delivery to all active WhatsApp groups whose `audience`
+matches the property's rent/sale type. Until WHATSAPP_DAEMON_URL +
+WHATSAPP_DAEMON_TOKEN are set, dispatch is a no-op and the admin queue
+keeps using the manual one-tap share flow.
 
-Currently this module exists but is NOT yet wired into the scheduler
-tick. Wiring decisions still need Shmuel input:
-  - Auto-post on slot trigger, or queue-and-confirm with one-tap approval?
-  - Post to all active groups, or per-group rules (e.g. status updates
-    vs. rental groups vs. sale groups)?
-  - What's the cooldown between sends to avoid webot rate-limiting?
-
-For now, `dispatch_slot()` is the unit-testable entry point. Once
-Shmuel decides the trigger semantics, call it from `scheduler.py` (a
-fire-and-forget task at slot time) or from a new admin endpoint
-`/post-slots/{id}/auto-post`.
+`dispatch_slot()` is the unit-testable entry point. It's called from
+the scheduler's tick on each due slot.
 """
 from __future__ import annotations
 
@@ -28,7 +17,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shmuel_backend import webot_client
+from shmuel_backend import whatsapp_client
 from shmuel_backend.compose import compose_post
 from shmuel_backend.config import settings
 from shmuel_backend.enums import (
@@ -47,9 +36,9 @@ class DispatchResult:
     """Outcome of attempting to send a slot to all matching groups.
 
     `attempted` counts groups we tried to reach; `succeeded` counts the
-    ones webot accepted. A partial failure (some groups OK, some failed)
-    is NOT enough to flip the slot to POSTED — caller decides whether
-    to mark it POSTED or leave it for retry.
+    ones the daemon accepted. A partial failure (some groups OK, some
+    failed) is NOT enough to flip the slot to POSTED — caller decides
+    whether to mark it POSTED or leave it for retry.
     """
 
     slot_id: str
@@ -116,24 +105,24 @@ async def dispatch_slot(
     *,
     mark_posted_on_success: bool = True,
 ) -> DispatchResult:
-    """Send `slot`'s property to every active matching WhatsApp group via webot.
+    """Send `slot`'s property to every active matching WhatsApp group.
 
-    Returns a `DispatchResult` describing what happened. When the webot
-    integration is not configured, returns immediately with
-    `skipped_reason="webot_unconfigured"` so the caller can decide whether
-    to fall back to the manual one-tap share flow.
+    Returns a `DispatchResult` describing what happened. When the
+    whatsapp-daemon is not configured, returns immediately with
+    `skipped_reason="whatsapp_daemon_unconfigured"` so the caller can
+    decide whether to fall back to the manual one-tap share flow.
 
     Idempotency: the caller controls whether to flip the slot's status.
     By default, ANY success marks the slot POSTED — partial failures are
-    acceptable since webot occasionally drops sends and we don't want
-    duplicate posts on retry. Set `mark_posted_on_success=False` to keep
-    the slot in PENDING for caller-driven retry logic.
+    acceptable since the daemon occasionally drops sends and we don't
+    want duplicate posts on retry. Set `mark_posted_on_success=False` to
+    keep the slot in PENDING for caller-driven retry logic.
     """
     result = DispatchResult(slot_id=str(slot.id))
 
-    if not settings.webot_api_token or not settings.webot_from_phone:
-        result.skipped_reason = "webot_unconfigured"
-        log.info("auto_poster: slot %s skipped — webot unconfigured", slot.id)
+    if not settings.whatsapp_daemon_url or not settings.whatsapp_daemon_token:
+        result.skipped_reason = "whatsapp_daemon_unconfigured"
+        log.info("auto_poster: slot %s skipped — whatsapp daemon unconfigured", slot.id)
         return result
 
     prop = slot.property
@@ -162,24 +151,26 @@ async def dispatch_slot(
     )
     photos = list(photos_rows.scalars().all())
     message = _build_message(prop, photos)
-    media_link = _first_photo_url(photos)
+    # Lead photo URL is captured but not yet sent — the Baileys daemon's
+    # /send-group only accepts text today. Wire media-with-text once the
+    # daemon learns to upload images (next iteration).
+    _ = _first_photo_url(photos)
 
     for group in groups:
         result.attempted += 1
-        # webot identifies WhatsApp groups by their target identifier; this
-        # is stored on the Group row's `target_url` (e.g. the group invite
-        # code or webot-internal group ID Shmuel pastes in via admin).
+        # `target_url` on the Group row holds the WhatsApp group JID (e.g.
+        # `12345-67890@g.us`) or bare id. Admin populates it from the
+        # daemon's GET /groups list rather than free-form paste.
         to = group.target_url or ""
         if not to:
             result.group_failures.append({"group": group.name, "error": "missing_target_url"})
             continue
-        sent = await webot_client.send_message(
-            to_phone_number=to,
+        sent = await whatsapp_client.send_to_group(
+            group_id=to,
             message=message,
-            media_link=media_link,
         )
         if sent is None:
-            result.group_failures.append({"group": group.name, "error": "webot_failure"})
+            result.group_failures.append({"group": group.name, "error": "daemon_failure"})
             continue
         result.succeeded += 1
 

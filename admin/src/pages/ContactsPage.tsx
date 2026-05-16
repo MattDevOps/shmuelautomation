@@ -67,7 +67,7 @@ export default function ContactsPage() {
           <h1>Contacts</h1>
           <p className="page-subhead">
             Your address book. Tag people by segment, then export a CSV ready
-            for webot or any WhatsApp bulk sender.
+            for any WhatsApp bulk sender.
           </p>
         </div>
         <div className="header-actions">
@@ -77,7 +77,7 @@ export default function ContactsPage() {
           <a className="btn" href={exportContactsUrl(activeSegments)}>
             {activeSegments.length > 0
               ? `Export (${activeSegments.join(', ')})`
-              : 'Export to webot'}
+              : 'Export CSV'}
           </a>
           <Link className="btn btn-primary" to="/contacts/new">
             New contact

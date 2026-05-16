@@ -1,7 +1,7 @@
 """Tests for the Phase 2 auto-poster module.
 
-Covers the no-op path (webot unconfigured), the no-group path, the
-audience filtering (sale property → SALE+BOTH groups, not RENT), and
+Covers the no-op path (daemon unconfigured), the no-group path, the
+audience filtering (sale property -> SALE+BOTH groups, not RENT), and
 the post-success status flip.
 """
 from __future__ import annotations
@@ -24,6 +24,14 @@ from shmuel_backend.enums import (
     PropertyType,
 )
 from shmuel_backend.models import Group, PostSlot, Property
+
+DAEMON_URL = "http://daemon.local:8787"
+
+
+@pytest.fixture
+def with_daemon(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cfg, "whatsapp_daemon_url", DAEMON_URL)
+    monkeypatch.setattr(cfg, "whatsapp_daemon_token", "tok123")
 
 
 async def _make_property(session: AsyncSession, *, prop_type: PropertyType) -> Property:
@@ -48,7 +56,6 @@ async def _make_slot(session: AsyncSession, prop: Property) -> PostSlot:
     )
     session.add(slot)
     await session.flush()
-    # Eager-load the relationship so dispatch_slot sees slot.property
     await session.refresh(slot, attribute_names=["property"])
     return slot
 
@@ -58,7 +65,7 @@ async def _make_group(
     *,
     platform: GroupPlatform,
     audience: GroupAudience,
-    target_url: str = "972500000001",
+    target_url: str = "12345-67890@g.us",
     name: str = "G1",
     active: bool = True,
 ) -> Group:
@@ -75,21 +82,19 @@ async def _make_group(
 
 
 @pytest.mark.asyncio
-async def test_dispatch_skipped_when_webot_unconfigured(session: AsyncSession) -> None:
+async def test_dispatch_skipped_when_daemon_unconfigured(session: AsyncSession) -> None:
     prop = await _make_property(session, prop_type=PropertyType.RENT)
     slot = await _make_slot(session, prop)
     result = await dispatch_slot(session, slot)
-    assert result.skipped_reason == "webot_unconfigured"
+    assert result.skipped_reason == "whatsapp_daemon_unconfigured"
     assert result.attempted == 0
     assert slot.status == PostSlotStatus.PENDING
 
 
 @pytest.mark.asyncio
 async def test_dispatch_skipped_when_no_groups(
-    session: AsyncSession, monkeypatch
+    session: AsyncSession, with_daemon: None,
 ) -> None:
-    monkeypatch.setattr(cfg, "webot_api_token", "tok")
-    monkeypatch.setattr(cfg, "webot_from_phone", "972559662779")
     prop = await _make_property(session, prop_type=PropertyType.RENT)
     slot = await _make_slot(session, prop)
     result = await dispatch_slot(session, slot)
@@ -99,28 +104,24 @@ async def test_dispatch_skipped_when_no_groups(
 
 @pytest.mark.asyncio
 async def test_dispatch_filters_groups_by_audience(
-    session: AsyncSession, monkeypatch
+    session: AsyncSession, with_daemon: None,
 ) -> None:
     """A SALE property should not be posted to RENT-only groups."""
-    monkeypatch.setattr(cfg, "webot_api_token", "tok")
-    monkeypatch.setattr(cfg, "webot_from_phone", "972559662779")
     prop = await _make_property(session, prop_type=PropertyType.SALE)
     slot = await _make_slot(session, prop)
-    # Rent-only group should be skipped:
     await _make_group(session, platform=GroupPlatform.WHATSAPP,
                       audience=GroupAudience.RENT, name="RentOnly")
-    # Sale-only group + a BOTH-audience group should both be hit:
     await _make_group(session, platform=GroupPlatform.WHATSAPP,
                       audience=GroupAudience.SALE, name="SaleOnly",
-                      target_url="972500000002")
+                      target_url="22222-22222@g.us")
     await _make_group(session, platform=GroupPlatform.WHATSAPP,
                       audience=GroupAudience.BOTH, name="Both",
-                      target_url="972500000003")
+                      target_url="33333-33333@g.us")
     await session.commit()
 
     with respx.mock(assert_all_called=False) as rmock:
-        route = rmock.post("https://api.webot.co.il/api/v1/sendMessage").mock(
-            return_value=Response(200, json={"ok": True})
+        route = rmock.post(f"{DAEMON_URL}/send-group").mock(
+            return_value=Response(200, json={"ok": True, "messageId": "X"}),
         )
         result = await dispatch_slot(session, slot)
     assert result.attempted == 2  # SaleOnly + Both
@@ -131,12 +132,8 @@ async def test_dispatch_filters_groups_by_audience(
 
 @pytest.mark.asyncio
 async def test_dispatch_skips_groups_with_no_target_url(
-    session: AsyncSession, monkeypatch
+    session: AsyncSession, with_daemon: None,
 ) -> None:
-    """A misconfigured group (no target_url) is recorded as a failure but
-    doesn't crash the dispatch."""
-    monkeypatch.setattr(cfg, "webot_api_token", "tok")
-    monkeypatch.setattr(cfg, "webot_from_phone", "972559662779")
     prop = await _make_property(session, prop_type=PropertyType.RENT)
     slot = await _make_slot(session, prop)
     await _make_group(session, platform=GroupPlatform.WHATSAPP,
@@ -146,26 +143,23 @@ async def test_dispatch_skips_groups_with_no_target_url(
     assert result.attempted == 1
     assert result.succeeded == 0
     assert result.group_failures == [{"group": "Empty", "error": "missing_target_url"}]
-    # Slot stays PENDING because no group succeeded.
     assert slot.status == PostSlotStatus.PENDING
 
 
 @pytest.mark.asyncio
 async def test_dispatch_marks_posted_only_on_success(
-    session: AsyncSession, monkeypatch
+    session: AsyncSession, with_daemon: None,
 ) -> None:
-    """If webot rejects every send, the slot should stay PENDING for retry."""
-    monkeypatch.setattr(cfg, "webot_api_token", "tok")
-    monkeypatch.setattr(cfg, "webot_from_phone", "972559662779")
+    """If the daemon rejects every send, the slot should stay PENDING for retry."""
     prop = await _make_property(session, prop_type=PropertyType.RENT)
     slot = await _make_slot(session, prop)
     await _make_group(session, platform=GroupPlatform.WHATSAPP,
-                      audience=GroupAudience.BOTH, target_url="972500000001")
+                      audience=GroupAudience.BOTH, target_url="44444-44444@g.us")
     await session.commit()
 
     with respx.mock(assert_all_called=False) as rmock:
-        rmock.post("https://api.webot.co.il/api/v1/sendMessage").mock(
-            return_value=Response(503, text="webot down")
+        rmock.post(f"{DAEMON_URL}/send-group").mock(
+            return_value=Response(503, text="daemon down"),
         )
         result = await dispatch_slot(session, slot)
     assert result.attempted == 1

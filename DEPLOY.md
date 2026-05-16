@@ -74,11 +74,13 @@ echo -n "VALUE_FROM_GCP_OAUTH"     | gcloud secrets create google-oauth-client-s
 echo -n "VALUE_FROM_SUPABASE"      | gcloud secrets create database-url --data-file=-
 echo -n "VALUE_FROM_RESEND"        | gcloud secrets create resend-api-key --data-file=-
 echo -n "VALUE_FROM_OPENAI"        | gcloud secrets create openai-api-key --data-file=-
-# Webot secrets are only needed once Shmuel signs up for webot.co.il +
-# generates an API token. Until then, the backend no-ops gracefully on
-# the webot path. Create empty placeholders OR omit from `--set-secrets`.
-echo -n ""                         | gcloud secrets create webot-api-token --data-file=-
-echo -n ""                         | gcloud secrets create webot-from-phone --data-file=-
+# WhatsApp daemon secrets are only needed once the Baileys daemon (in
+# whatsapp-daemon/) is deployed. Until then, the backend no-ops gracefully
+# on the WhatsApp path. Create empty placeholders OR omit from `--set-secrets`.
+# Generate the token with `openssl rand -hex 32` and configure the same
+# value on the daemon side so backend ↔ daemon can authenticate.
+echo -n ""                         | gcloud secrets create whatsapp-daemon-url --data-file=-
+echo -n ""                         | gcloud secrets create whatsapp-daemon-token --data-file=-
 ```
 
 Each secret then needs `roles/secretmanager.secretAccessor` granted to the runtime SA (default compute SA, `<project-number>-compute@developer.gserviceaccount.com` — see §2.5 in DEPLOY.md history for the exact `gcloud secrets add-iam-policy-binding` invocation if not already done).
@@ -98,7 +100,7 @@ gcloud run deploy classic-jerusalem-realty-api \
   --cpu 1 \
   --port 8000 \
   --set-env-vars "ENVIRONMENT=production,CORS_ORIGINS=[\"https://admin.classicjerusalem.com\"],GOOGLE_OAUTH_REDIRECT_URI=https://api.classicjerusalem.com/auth/google/callback,ADMIN_REDIRECT_URI=https://admin.classicjerusalem.com/settings" \
-  --set-secrets "ENCRYPTION_KEY=encryption-key:latest,GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest,DATABASE_URL=database-url:latest,BACKEND_API_KEY=backend-api-key:latest,RESEND_API_KEY=resend-api-key:latest,OPENAI_API_KEY=openai-api-key:latest,WEBOT_API_TOKEN=webot-api-token:latest,WEBOT_FROM_PHONE=webot-from-phone:latest"
+  --set-secrets "ENCRYPTION_KEY=encryption-key:latest,GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest,DATABASE_URL=database-url:latest,BACKEND_API_KEY=backend-api-key:latest,RESEND_API_KEY=resend-api-key:latest,OPENAI_API_KEY=openai-api-key:latest,WHATSAPP_DAEMON_URL=whatsapp-daemon-url:latest,WHATSAPP_DAEMON_TOKEN=whatsapp-daemon-token:latest"
 ```
 
 > If this is the very first deploy and you haven't yet created `backend-api-key` in Secret Manager (§1.6 covers it), drop that one entry from `--set-secrets` and re-run after creating it. The middleware no-ops when the env var is empty, so the service starts fine either way.
@@ -384,19 +386,32 @@ pages render English fallbacks.
 - Run a backfill from your laptop: `cd backend && uv run python scripts/translate_backfill.py` (uses the same `sync_translations()` the admin endpoint uses). Idempotent.
 - Or hit `POST /translations/sync` against the live backend after deploy.
 
-## 5.2 Webot — WhatsApp delivery (optional, Phase 2)
+## 5.2 WhatsApp daemon — WhatsApp delivery (optional, Phase 2)
 
-Once Shmuel signs up for webot.co.il and mints an API token, set the secret
-+ from-phone-number in Cloud Run. `/webot/status` will flip to `reachable=true`
-and `auto_poster.dispatch_slot()` becomes wirable into the scheduler.
+The Baileys-based daemon (in `whatsapp-daemon/`) holds the long-lived
+WhatsApp connection and exposes a small HTTP API the backend talks to.
+Deploy the daemon (Fly.io recommended — see `whatsapp-daemon/README.md`),
+then point Cloud Run at it:
 
 ```bash
-echo -n "WEBOT_BEARER_TOKEN" | gcloud secrets versions add webot-api-token --data-file=-
-echo -n "972559662779"        | gcloud secrets versions add webot-from-phone --data-file=-
+# WHATSAPP_DAEMON_URL — the daemon's private hostname (e.g. its Fly internal
+# URL over WireGuard) or its public URL guarded by the shared token.
+echo -n "https://shmuel-whatsapp.internal:8787" | \
+  gcloud secrets versions add whatsapp-daemon-url --data-file=-
+
+# Shared secret — same value on both sides. Generate with `openssl rand -hex 32`.
+echo -n "$(openssl rand -hex 32)" | \
+  gcloud secrets versions add whatsapp-daemon-token --data-file=-
+
 gcloud run services update classic-jerusalem-realty-api --region europe-west1   # forces fresh revision
-curl -sH "x-api-key: $BACKEND_API_KEY" https://api.classicjerusalem.com/webot/status
-# {"configured":true,"from_phone":"972559662779","reachable":true,"detail":{...}}
+curl -sH "x-api-key: $BACKEND_API_KEY" https://api.classicjerusalem.com/whatsapp/status
+# {"configured":true,"reachable":true,"connection_state":"connected",
+#  "paired_phone":"972559662779","last_connected_at":"...","last_disconnect_reason":null}
 ```
+
+First-time pairing: open the admin's WhatsApp panel (or `GET /whatsapp/qr`),
+scan the QR with Shmuel's phone, and the daemon will PUT its serialized auth
+blob back to `/whatsapp/session/blob` so subsequent restarts skip the QR.
 
 ## 6. Smoke test
 

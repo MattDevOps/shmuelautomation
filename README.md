@@ -21,7 +21,7 @@ notes.md            # internal project notes
 - **Yad2 link import**: paste a URL → fetch & parse OpenGraph + JSON-LD → form pre-filled → review → save. Graceful fallback when blocked by Cloudflare.
 - **Photo storage in Google Drive**: per-property folder (`Rent — Baka (4893a584)` style), idempotent upload via SHA-256 checksum, OAuth refresh tokens encrypted at rest with Fernet.
 - **Public read API**: `/public/properties` for WordPress consumption — strict subset of fields, never leaks owner phone / broker fee / notes, defaults to `status=available`, cache-headed.
-- **Contacts CRM**: address book with free-form segment tags, CSV export ready for webot or any WhatsApp bulk sender (UTF-8 BOM so Hebrew renders in Excel).
+- **Contacts CRM**: address book with free-form segment tags, CSV export ready for any WhatsApp bulk sender (UTF-8 BOM so Hebrew renders in Excel).
 
 ### Phase 2 — publishing & scheduling (done)
 
@@ -30,7 +30,7 @@ notes.md            # internal project notes
 - **Post composition**: Hebrew + English templates with tabular price, photo URL, Yad2 link.
 - **One-tap share modal**: pre-composed text, language toggle, copy-to-clipboard, Open WhatsApp (`wa.me`), Share to Facebook, and per-group "copy & open ↗" jump links that copy the post text and open the destination in a new tab.
 - **Configurable group lists**: WhatsApp / WhatsApp Status / Facebook / Janglo / other, tagged for rent / sale / both. Shmuel curates the destinations from the admin.
-- **Webot WhatsApp integration** (no-op pending token): `webot_client.py` wraps webot.co.il's REST API for `/sendMessage`, `/getGroups`, `/checkStatus`. `/webot/status` admin endpoint surfaces connection health. `auto_poster.dispatch_slot(slot)` is the Phase 2 trigger that posts a queued slot to every active matching WhatsApp group. Activates by setting `WEBOT_API_TOKEN` + `WEBOT_FROM_PHONE` in Cloud Run secrets.
+- **WhatsApp daemon integration** (no-op pending deploy): `whatsapp_client.py` talks to a self-hosted Baileys-based daemon (in `whatsapp-daemon/`) over its small HTTP API (`/send-group`, `/send-dm`, `/groups`, `/status`, `/qr`, `/reset`). Session auth (the Baileys creds/keys blob) round-trips through `/whatsapp/session/blob` so the backend's Postgres is the durable store and the daemon can redeploy without losing pairing. Every inbound message lands in `whatsapp_messages` via `/webhooks/whatsapp/inbound` — the data foundation for the Phase 3 chatbot + summarization. `auto_poster.dispatch_slot(slot)` is the Phase 2 trigger that posts a queued slot to every active matching WhatsApp group. Activates by setting `WHATSAPP_DAEMON_URL` + `WHATSAPP_DAEMON_TOKEN` in Cloud Run secrets and deploying the daemon (see `whatsapp-daemon/README.md`).
 
 ### Phase 3 — partial (newsletter + i18n done; chatbot pending)
 
@@ -102,17 +102,20 @@ RESEND_API_KEY=
 OPENAI_API_KEY=
 OPENAI_TRANSLATE_MODEL=gpt-4o-mini
 
-# Webot WhatsApp delivery (Phase 2). Both must be set for /webot/status
-# to report reachable and auto_poster to dispatch. Empty = no-op.
-WEBOT_API_TOKEN=
-WEBOT_FROM_PHONE=
+# WhatsApp daemon (Phase 2). Both must be set for /whatsapp/status to
+# report reachable and auto_poster to dispatch. Empty = no-op.
+# The daemon itself lives in whatsapp-daemon/ — deploy it separately
+# (e.g. Fly.io) and point WHATSAPP_DAEMON_URL at its private hostname.
+# Token is a shared secret — generate with `openssl rand -hex 32`.
+WHATSAPP_DAEMON_URL=
+WHATSAPP_DAEMON_TOKEN=
 ```
 
 ## Testing
 
 | Layer | Command | Counts |
 | --- | --- | --- |
-| Backend unit | `cd backend && uv run pytest` | 234 tests |
+| Backend unit | `cd backend && uv run pytest` | 249 tests |
 | Admin unit | `cd admin && npm test` | 92 tests |
 | Admin E2E | `cd admin && npm run test:e2e` | 3 flows (Properties / Yad2 import / Queue→share) |
 | Frontend (Next.js) typecheck | `cd classic-jerusalem-frontend && npx tsc --noEmit` | |
@@ -141,7 +144,10 @@ Property responses include `Cache-Control: public, max-age=60`. The WordPress pl
 | Endpoint | Returns |
 | --- | --- |
 | `POST /translations/sync` | Idempotent full translation sync (WP → OpenAI → Supabase) |
-| `GET /webot/status` | Webot integration health: `{configured, from_phone, reachable, detail}` |
+| `GET /whatsapp/status` | WhatsApp daemon health: `{configured, reachable, connection_state, paired_phone, last_connected_at, last_disconnect_reason}` |
+| `GET /whatsapp/qr` | Current pairing QR (PNG data URL) or `null` if already connected |
+| `GET /whatsapp/groups` | Groups the paired phone is in — populates the group-picker UI |
+| `POST /whatsapp/reset` | Wipe the daemon's auth and force re-pairing |
 | `GET /newsletter/subscribers` | Subscriber list + stats for the admin newsletter page |
 
 The repo ships an installable WordPress plugin in `wordpress-plugin/`:

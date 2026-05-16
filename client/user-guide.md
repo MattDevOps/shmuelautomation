@@ -257,11 +257,12 @@ If you have an Excel, Google Sheets, or CSV from another CRM:
 Phones are normalized for matching: `+972 50-000-0000` and `+972500000000`
 count as the same contact.
 
-### 6.3 Exporting (for webot bulk-send)
+### 6.3 Exporting (for bulk-send tools)
 
-**Contacts → Export to webot**. Downloads a CSV with UTF-8 BOM (so
-Hebrew renders correctly in Excel and webot). You can filter by segment
-first to export only "buyers" or only "Baka renters."
+**Contacts → Export CSV**. Downloads a CSV with UTF-8 BOM (so
+Hebrew renders correctly in Excel and any WhatsApp bulk-send tool).
+You can filter by segment first to export only "buyers" or only
+"Baka renters."
 
 ### 6.4 Matching contacts to a property
 
@@ -339,7 +340,7 @@ restored from a status change. The only irreversible action is
 | Add photos | Property edit page → Photos section |
 | Add a contact | Contacts → New contact |
 | Bulk-import contacts from Excel | Contacts → Import CSV |
-| Export contacts to webot | Contacts → Export to webot |
+| Export contacts to CSV | Contacts → Export CSV |
 | Add/edit your group list | Groups |
 | See if everything is healthy | System |
 | Reconnect Google Drive | Settings |

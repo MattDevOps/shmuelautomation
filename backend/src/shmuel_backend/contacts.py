@@ -1,9 +1,9 @@
 """Contacts CRM — minimal address book with segment tags.
 
 CSV format: Phone, Name, Email, Language, Segments, Notes — UTF-8 with BOM
-so Excel + webot's importer render Hebrew correctly. Segments are
-semicolon-separated within the single CSV cell to avoid colliding with
-the comma delimiter.
+so Excel and third-party WhatsApp bulk-send tools render Hebrew correctly.
+Segments are semicolon-separated within the single CSV cell to avoid
+colliding with the comma delimiter.
 
 Segment filter is *any-of* semantics: ?segment=buyer&segment=vip returns
 contacts that have buyer OR vip (not both). Phase 1 keeps it simple; if we

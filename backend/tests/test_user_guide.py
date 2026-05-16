@@ -37,7 +37,7 @@ def test_guide_references_features_we_actually_built() -> None:
         "Compose & share",
         "Mark slot as posted",
         "Import CSV",
-        "Export to webot",
+        "Export CSV",
         "duplicate",
         "bulk",
         "Google Drive",

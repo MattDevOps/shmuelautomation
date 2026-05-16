@@ -142,7 +142,7 @@ def test_export_csv_starts_with_utf8_bom(client: TestClient) -> None:
     _create(client, name="Yossi")
     r = client.get("/contacts/export.csv")
     assert r.content.startswith(b"\xef\xbb\xbf"), (
-        "Excel + webot need a BOM to render Hebrew correctly"
+        "Excel + bulk-send tools need a BOM to render Hebrew correctly"
     )
 
 

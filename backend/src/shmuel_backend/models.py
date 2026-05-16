@@ -282,6 +282,58 @@ class OAuthState(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
+class WhatsappSession(Base):
+    """Persisted Baileys auth state for the WhatsApp daemon.
+
+    Single-row table — the daemon writes the JSON-serialized
+    `{creds, keys}` blob (base64-encoded) here on every state change and
+    reads it on boot. Survives daemon redeploys so we don't have to
+    rescan the QR every time.
+
+    The blob is opaque to the backend; only the daemon ever interprets it.
+    """
+
+    __tablename__ = "whatsapp_session"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default="default")
+    blob: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
+
+
+class WhatsappMessage(Base):
+    """Every inbound WhatsApp message the daemon forwards to us.
+
+    Powers Phase 3.1 (chatbot decides what to reply) and Phase 3.2
+    (nightly summarization into CRM notes). Keyed by WhatsApp's own
+    message_id within a chat to make the daemon→backend webhook
+    idempotent on retries.
+    """
+
+    __tablename__ = "whatsapp_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    message_id: Mapped[str] = mapped_column(String(64), index=True)
+    chat_jid: Mapped[str] = mapped_column(String(128), index=True)
+    from_jid: Mapped[str] = mapped_column(String(128))
+    from_phone: Mapped[str | None] = mapped_column(String(32), index=True)
+    from_name: Mapped[str | None] = mapped_column(String(200))
+    is_group: Mapped[bool] = mapped_column(default=False)
+    group_id: Mapped[str | None] = mapped_column(String(128))
+    group_name: Mapped[str | None] = mapped_column(String(255))
+    text: Mapped[str | None] = mapped_column(Text)
+    media_type: Mapped[str | None] = mapped_column(String(16))
+    # WhatsApp's own timestamp in unix seconds — what the daemon reports.
+    wa_timestamp: Mapped[int] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("chat_jid", "message_id", name="uq_whatsapp_messages_chat_id"),
+        Index("ix_whatsapp_messages_chat_created", "chat_jid", "created_at"),
+    )
+
+
 class ContentTranslation(Base):
     """Translations of WP-sourced content (properties, blog posts, neighborhoods)
     into ES/FR/HE. One row per (content_type, content_slug, lang, field).
