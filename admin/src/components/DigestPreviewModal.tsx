@@ -21,32 +21,37 @@ interface Props {
 export default function DigestPreviewModal({ open, onClose }: Props): React.ReactElement | null {
   const [language, setLanguage] = useState<Lang>('en')
   const [typeFilter, setTypeFilter] = useState<SubscriberPreference>('both')
-  const [html, setHtml] = useState<string>('')
-  const [loading, setLoading] = useState<boolean>(false)
-  const [error, setError] = useState<string | null>(null)
+  const [resolved, setResolved] = useState<{
+    key: string
+    html: string
+    error: string | null
+  } | null>(null)
+
+  // The current request's identity is derived from inputs. When any input
+  // changes, requestKey changes immediately on render, so `loading` flips
+  // true without needing a setState inside the effect.
+  const requestKey = `${open ? 1 : 0}|${language}|${typeFilter}`
+  const loading = open && resolved?.key !== requestKey
+  const html = resolved?.html ?? ''
+  const error = resolved?.key === requestKey ? resolved?.error ?? null : null
 
   useEffect(() => {
     if (!open) return
     let cancelled = false
-    setLoading(true)
-    setError(null)
     const opts: PreviewOptions = { language, type_filter: typeFilter, limit: 5 }
     previewDigestHtml(opts)
       .then((text) => {
         if (cancelled) return
-        setHtml(text)
+        setResolved({ key: requestKey, html: text, error: null })
       })
       .catch((e: Error) => {
         if (cancelled) return
-        setError(e.message)
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
+        setResolved({ key: requestKey, html: '', error: e.message })
       })
     return () => {
       cancelled = true
     }
-  }, [open, language, typeFilter])
+  }, [open, language, typeFilter, requestKey])
 
   useEffect(() => {
     if (!open) return
