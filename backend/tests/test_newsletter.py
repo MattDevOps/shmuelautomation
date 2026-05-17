@@ -53,20 +53,20 @@ def with_resend_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "resend_api_key", "test-resend-key")
 
 
-def test_subscribe_creates_pending_subscriber(client: TestClient) -> None:
+def test_subscribe_creates_confirmed_subscriber(client: TestClient) -> None:
     body = _subscribe(client)
     assert body == {"status": "ok"}
 
     listing = client.get("/newsletter/subscribers").json()
     assert listing["stats"] == {
         "total": 1,
-        "confirmed": 0,
-        "pending": 1,
+        "confirmed": 1,
+        "pending": 0,
         "unsubscribed": 0,
     }
     item = listing["items"][0]
     assert item["email"] == "alice@example.com"
-    assert item["confirmed_at"] is None
+    assert item["confirmed_at"] is not None
 
 
 def test_subscribe_resend_emits_email_when_configured(
@@ -77,7 +77,7 @@ def test_subscribe_resend_emits_email_when_configured(
     assert sent.called, "expected a Resend POST when RESEND_API_KEY is set"
     payload = sent.calls.last.request.content.decode("utf-8")
     assert "bob@example.com" in payload
-    assert "Confirm" in payload  # subject line
+    assert "Welcome" in payload  # subject line
 
 
 def test_subscribe_no_op_when_resend_unconfigured(
@@ -88,7 +88,7 @@ def test_subscribe_no_op_when_resend_unconfigured(
     assert not resend_mock["resend_send"].called
 
 
-def test_subscribe_is_idempotent_for_pending(client: TestClient) -> None:
+def test_resubscribing_refreshes_preferences(client: TestClient) -> None:
     _subscribe(client, "dave@example.com", type_filter="rent")
     _subscribe(client, "dave@example.com", type_filter="sale")
     listing = client.get("/newsletter/subscribers").json()
@@ -96,7 +96,17 @@ def test_subscribe_is_idempotent_for_pending(client: TestClient) -> None:
     assert listing["items"][0]["type_filter"] == "sale"
 
 
-def test_confirm_marks_subscriber_active(client: TestClient) -> None:
+def test_resubscribing_does_not_resend_welcome(
+    client: TestClient, resend_mock: respx.MockRouter, with_resend_key: None
+) -> None:
+    _subscribe(client, "ivy@example.com")
+    assert resend_mock["resend_send"].call_count == 1
+    _subscribe(client, "ivy@example.com", type_filter="rent")
+    assert resend_mock["resend_send"].call_count == 1
+
+
+def test_legacy_confirm_endpoint_is_idempotent(client: TestClient) -> None:
+    """In-flight links from the old double-opt-in flow must still 200."""
     _subscribe(client, "eve@example.com")
     token = _confirmation_token(client, "eve@example.com")
 
@@ -150,16 +160,14 @@ def _confirmation_token(client: TestClient, email: str) -> str:
     return _fetch_tokens(client, email)[0]
 
 
-def _confirm_subscriber(client: TestClient, email: str) -> str:
-    """Helper: subscribe + confirm + return the unsubscribe token."""
+def _subscribe_and_get_unsub_token(client: TestClient, email: str) -> str:
+    """Helper: subscribe (auto-confirmed) and return the unsubscribe token."""
     _subscribe(client, email)
-    confirm_token, unsub_token = _fetch_tokens(client, email)
-    client.get(f"/public/newsletter/confirm/{confirm_token}")
-    return unsub_token
+    return _fetch_tokens(client, email)[1]
 
 
 def test_unsubscribe_marks_subscriber_unsubscribed(client: TestClient) -> None:
-    token = _confirm_subscriber(client, "frank@example.com")
+    token = _subscribe_and_get_unsub_token(client, "frank@example.com")
     r = client.get(f"/public/newsletter/unsubscribe/{token}")
     assert r.status_code == 200
 
@@ -168,12 +176,13 @@ def test_unsubscribe_marks_subscriber_unsubscribed(client: TestClient) -> None:
 
 
 def test_resubscribe_after_unsubscribe_resets_state(client: TestClient) -> None:
-    token = _confirm_subscriber(client, "grace@example.com")
+    token = _subscribe_and_get_unsub_token(client, "grace@example.com")
     client.get(f"/public/newsletter/unsubscribe/{token}")
     _subscribe(client, "grace@example.com")
     listing = client.get("/newsletter/subscribers").json()
     assert listing["stats"]["total"] == 1
-    assert listing["stats"]["pending"] == 1  # back to needing confirmation
+    assert listing["stats"]["confirmed"] == 1  # auto-confirmed on resubscribe
+    assert listing["stats"]["pending"] == 0
     assert listing["stats"]["unsubscribed"] == 0
 
 
@@ -184,7 +193,7 @@ def test_digest_fires_when_threshold_met(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(settings, "newsletter_digest_threshold", 3)
-    _confirm_subscriber(client, "henry@example.com")
+    _subscribe(client, "henry@example.com")
     resend_mock["resend_send"].reset()
 
     # 1st and 2nd properties — below threshold, no digest yet.
@@ -207,16 +216,8 @@ def test_digest_respects_type_filter(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(settings, "newsletter_digest_threshold", 2)
-    # Two subscribers: rent-only and sale-only — set the preference at signup
-    # (we resubscribe to overwrite it after confirmation, since the unconfirmed
-    # path keeps the row but updates the preference).
     _subscribe(client, "rent-fan@example.com", type_filter="rent")
     _subscribe(client, "sale-fan@example.com", type_filter="sale")
-    # Confirm both.
-    rent_confirm = _confirmation_token(client, "rent-fan@example.com")
-    sale_confirm = _confirmation_token(client, "sale-fan@example.com")
-    client.get(f"/public/newsletter/confirm/{rent_confirm}")
-    client.get(f"/public/newsletter/confirm/{sale_confirm}")
 
     resend_mock["resend_send"].reset()
 
@@ -231,16 +232,14 @@ def test_digest_respects_type_filter(
     assert not any("sale-fan@example.com" in body for body in sent_to)
 
 
-def test_digest_skips_unconfirmed_and_unsubscribed(
+def test_digest_skips_unsubscribed(
     client: TestClient,
     resend_mock: respx.MockRouter,
     with_resend_key: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(settings, "newsletter_digest_threshold", 1)
-    # Pending (unconfirmed) and confirmed-then-unsubscribed should both skip.
-    _subscribe(client, "pending@example.com")
-    unsub_token = _confirm_subscriber(client, "gone@example.com")
+    unsub_token = _subscribe_and_get_unsub_token(client, "gone@example.com")
     client.get(f"/public/newsletter/unsubscribe/{unsub_token}")
 
     resend_mock["resend_send"].reset()
@@ -249,7 +248,6 @@ def test_digest_skips_unconfirmed_and_unsubscribed(
         c.request.content.decode("utf-8")
         for c in resend_mock["resend_send"].calls
     ]
-    assert not any("pending@example.com" in body for body in sent_to)
     assert not any("gone@example.com" in body for body in sent_to)
 
 

@@ -1,8 +1,8 @@
 """Newsletter subscription + digest dispatch.
 
-Public endpoints (no auth, called from the WordPress signup form):
-  POST   /public/newsletter/subscribe           — sign up, double opt-in
-  GET    /public/newsletter/confirm/{token}     — click-through from email
+Public endpoints (no auth, called from the signup form):
+  POST   /public/newsletter/subscribe           — sign up, auto-confirmed
+  GET    /public/newsletter/confirm/{token}     — legacy no-op for in-flight emails
   GET    /public/newsletter/unsubscribe/{token} — one-click unsubscribe
 
 Admin endpoint (api-key gated by the global middleware):
@@ -35,7 +35,7 @@ from shmuel_backend.enums import (
     SubscriberPreference,
 )
 from shmuel_backend.models import CloudPhoto, NewsletterSubscriber, Property
-from shmuel_backend.newsletter_compose import render_confirmation, render_digest
+from shmuel_backend.newsletter_compose import render_digest, render_welcome
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 # Pragmatic email regex — anything with a local-part, an @, a domain, and a
 # TLD. Not RFC-perfect, and intentionally so: deliverability is the real test
-# (the confirm email either lands or doesn't), and we don't want to bring in
+# (the welcome email either lands or doesn't), and we don't want to bring in
 # email-validator just for a friend-scale signup form.
 _EMAIL_RE = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 
@@ -96,17 +96,19 @@ def _new_token() -> str:
 
 @public_router.post("/subscribe", response_model=SubscribeResponse)
 async def subscribe(payload: SubscribeRequest, session: SessionDep) -> SubscribeResponse:
-    """Create or refresh a subscription and send the confirmation email.
+    """Create or refresh a subscription and send the welcome email.
 
-    Idempotent on email: re-subscribing an already-confirmed address is a
-    no-op (returns ok). A previously-unsubscribed address gets re-armed
-    and a fresh confirmation email."""
+    Signups are auto-confirmed — no double opt-in. A previously-unsubscribed
+    address is re-armed with fresh tokens and welcomed back. Already-
+    subscribed addresses do not receive a duplicate welcome email.
+    """
     email_lower = payload.email.lower()
     existing = (
         await session.execute(
             select(NewsletterSubscriber).where(NewsletterSubscriber.email == email_lower)
         )
     ).scalar_one_or_none()
+    now = datetime.now(UTC).replace(tzinfo=None)
 
     if existing is None:
         sub = NewsletterSubscriber(
@@ -115,12 +117,13 @@ async def subscribe(payload: SubscribeRequest, session: SessionDep) -> Subscribe
             type_filter=payload.type_filter,
             confirmation_token=_new_token(),
             unsubscribe_token=_new_token(),
+            confirmed_at=now,
             source=payload.source,
         )
         session.add(sub)
         await session.commit()
         await session.refresh(sub)
-        rendered = render_confirmation(sub)
+        rendered = render_welcome(sub)
         await send_email(
             to=sub.email,
             subject=rendered.subject,
@@ -129,25 +132,29 @@ async def subscribe(payload: SubscribeRequest, session: SessionDep) -> Subscribe
         )
         return SubscribeResponse()
 
-    # Existing row: refresh language/preferences and resend the
-    # confirmation email if not yet confirmed. If they had previously
-    # unsubscribed, treat this as a fresh signup with new tokens.
     existing.language = payload.language
     existing.type_filter = payload.type_filter
     existing.source = payload.source
+
+    # Returning addresses fall into three buckets: already confirmed (silent
+    # refresh of prefs), previously unsubscribed (re-arm + welcome back), and
+    # legacy pending from the old double-opt-in flow (auto-confirm + welcome).
+    is_returning = (
+        existing.unsubscribed_at is not None or existing.confirmed_at is None
+    )
     if existing.unsubscribed_at is not None:
         existing.unsubscribed_at = None
-        existing.confirmed_at = None
         existing.confirmation_token = _new_token()
         existing.unsubscribe_token = _new_token()
         existing.last_digest_at = None
+    if existing.confirmed_at is None:
+        existing.confirmed_at = now
 
-    needs_confirmation = existing.confirmed_at is None
     await session.commit()
     await session.refresh(existing)
 
-    if needs_confirmation:
-        rendered = render_confirmation(existing)
+    if is_returning:
+        rendered = render_welcome(existing)
         await send_email(
             to=existing.email,
             subject=rendered.subject,

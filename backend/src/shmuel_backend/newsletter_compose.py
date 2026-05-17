@@ -75,10 +75,6 @@ def _api_url() -> str:
     return settings.newsletter_api_base_url.rstrip("/")
 
 
-def confirmation_url(token: str) -> str:
-    return f"{_api_url()}/public/newsletter/confirm/{quote(token)}"
-
-
 def unsubscribe_url(token: str) -> str:
     return f"{_api_url()}/public/newsletter/unsubscribe/{quote(token)}"
 
@@ -100,39 +96,69 @@ def _property_url(prop: Property, lang: str) -> str:
     return f"{base}{locale_prefix}/{section}/{qs}"
 
 
-def render_confirmation(sub: NewsletterSubscriber) -> RenderedEmail:
-    confirm_link = confirmation_url(sub.confirmation_token)
+def render_welcome(sub: NewsletterSubscriber) -> RenderedEmail:
+    """Warm welcome email sent immediately on signup (no confirm step).
+
+    The footer in `_wrap_html` already carries a small unsubscribe link, so
+    the body can stay focused on the welcome itself.
+    """
+    site = _site_url()
+    locale_prefix = "" if sub.language == "en" else f"/{sub.language}"
+    browse_url = f"{site}{locale_prefix}/"
+
     if sub.language == "he":
-        subject = "אישור הרשמה — Classic Jerusalem Realty"
+        subject = "ברוכים הבאים למשפחת Classic Jerusalem Realty"
         text = (
-            "תודה שנרשמת לרשימת התפוצה של Classic Jerusalem Realty.\n\n"
-            "כדי להפעיל את ההרשמה, יש ללחוץ על הקישור הבא:\n"
-            f"{confirm_link}\n\n"
-            "אם לא ביקשת להירשם, ניתן להתעלם מהודעה זו."
+            "ברוכים הבאים למשפחת Classic Jerusalem Realty.\n\n"
+            "שמחים שהצטרפתם. כשנכסים חדשים נכנסים לרשימה — דירות, "
+            "בתים ונכסים מיוחדים ברחבי ירושלים — אנחנו נשלח לכם אותם "
+            "ראשונים, ישר לתיבה.\n\n"
+            "אין צורך לעשות דבר. בינתיים, אתם מוזמנים לעיין בנכסים "
+            f"הזמינים: {browse_url}\n\n"
+            "ירושלים שייכת לאלה שבוחרים לחיות בה. אנחנו כאן כדי לעזור "
+            "לכם למצוא את המקום שלכם בה.\n\n"
+            "בברכה,\n"
+            "צוות Classic Jerusalem Realty"
         )
         html = _wrap_html(
-            f"""<h2>אישור הרשמה</h2>
-<p>תודה שנרשמת לרשימת התפוצה של Classic Jerusalem Realty.</p>
-<p>כדי להפעיל את ההרשמה, יש ללחוץ על הקישור הבא:</p>
-<p>{_cta_button(confirm_link, "אישור הרשמה")}</p>
-<p class="muted">אם לא ביקשת להירשם, ניתן להתעלם מהודעה זו.</p>""",
+            f"""<h2>ברוכים הבאים למשפחה</h2>
+<p>שמחים שהצטרפתם ל-Classic Jerusalem Realty.</p>
+<p>כשנכסים חדשים נכנסים לרשימה — דירות, בתים ונכסים מיוחדים ברחבי
+ירושלים — אנחנו נשלח לכם אותם ראשונים, ישר לתיבה. אין צורך לעשות דבר.</p>
+<p>בינתיים, אתם מוזמנים לעיין בנכסים הזמינים כרגע:</p>
+<p>{_cta_button(browse_url, "לכל הנכסים באתר")}</p>
+<p>ירושלים שייכת לאלה שבוחרים לחיות בה. אנחנו כאן כדי לעזור לכם
+למצוא את המקום שלכם בה.</p>
+<p class="muted">בברכה,<br/>צוות Classic Jerusalem Realty</p>""",
             lang="he",
             sub=sub,
         )
     else:
-        subject = "Confirm your subscription — Classic Jerusalem Realty"
+        subject = "Welcome to the Classic Jerusalem Realty family"
         text = (
-            "Thanks for signing up to Classic Jerusalem Realty's new-listings newsletter.\n\n"
-            "Confirm your subscription:\n"
-            f"{confirm_link}\n\n"
-            "If you didn't request this, ignore this email."
+            "Welcome to the Classic Jerusalem Realty family.\n\n"
+            "We're glad to have you. When new properties come on — "
+            "apartments, homes, and one-of-a-kind places across "
+            "Jerusalem — we'll send them your way first, straight to "
+            "your inbox.\n\n"
+            "Nothing for you to do. In the meantime, take a look at "
+            f"what's currently available: {browse_url}\n\n"
+            "Jerusalem belongs to those who choose to live in it. "
+            "We're here to help you find your place in it.\n\n"
+            "Warmly,\n"
+            "The Classic Jerusalem Realty team"
         )
         html = _wrap_html(
-            f"""<h2>Confirm your subscription</h2>
-<p>Thanks for signing up to Classic Jerusalem Realty's new-listings newsletter.</p>
-<p>Click below to confirm and start receiving emails when new properties are listed.</p>
-<p>{_cta_button(confirm_link, "Confirm subscription")}</p>
-<p class="muted">If you didn't request this, ignore this email.</p>""",
+            f"""<h2>Welcome to the family</h2>
+<p>We're glad to have you with Classic Jerusalem Realty.</p>
+<p>When new properties come on — apartments, homes, and one-of-a-kind
+places across Jerusalem — we'll send them your way first, straight to
+your inbox. Nothing for you to do.</p>
+<p>In the meantime, take a look at what's currently available:</p>
+<p>{_cta_button(browse_url, "Browse current listings")}</p>
+<p>Jerusalem belongs to those who choose to live in it. We're here to
+help you find your place in it.</p>
+<p class="muted">Warmly,<br/>The Classic Jerusalem Realty team</p>""",
             lang="en",
             sub=sub,
         )
