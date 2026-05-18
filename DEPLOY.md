@@ -413,6 +413,31 @@ First-time pairing: open the admin's WhatsApp panel (or `GET /whatsapp/qr`),
 scan the QR with Shmuel's phone, and the daemon will PUT its serialized auth
 blob back to `/whatsapp/session/blob` so subsequent restarts skip the QR.
 
+## 5.3 Chatbot + conversation summarization (Phase 3)
+
+Both features ride on top of the daemon's inbound webhook
+(`/webhooks/whatsapp/inbound`) — every DM the paired number receives is
+stored in `whatsapp_messages`, and from there:
+
+- **Chatbot.** Classifies each inbound DM via OpenAI, replies with up to 3
+  matching properties for search queries, hands off to a human for anything
+  off-catalog. The DB-backed `bot_config.chatbot_enabled` flag gates outbound
+  replies — toggle from the admin's **Chatbot** page. The bot stays silent
+  when:
+  - `chatbot_enabled = false` (default)
+  - The thread is in HUMAN mode (admin clicked "Take over")
+  - The daemon is unconfigured / unreachable
+
+- **Summarization.** Hit `POST /whatsapp/summaries/run` to summarize every
+  recently-active thread's new messages into `conversation_summaries`. Links
+  to contacts by phone-match. Idempotent on `(chat_jid, period_end)`. List
+  via `GET /whatsapp/summaries`. Wire to Cloud Scheduler later for a daily
+  digest cadence.
+
+No extra secrets — both features reuse `OPENAI_API_KEY` (already set in §1.3)
+plus the daemon URL/token (§5.2). The Alembic migration
+`c4f8a02e1d09_whatsapp_threads_botconfig_summaries` adds the three new tables.
+
 ## 6. Smoke test
 
 Run `bash deploy/post-deploy-check.sh` for the full network-level chain (9 checks: backend, admin gating, WP shortcode renderer). Should print `9 passed, 0 failed`.

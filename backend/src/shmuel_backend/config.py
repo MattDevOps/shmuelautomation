@@ -61,5 +61,15 @@ class Settings(BaseSettings):
     whatsapp_daemon_url: str = ""
     whatsapp_daemon_token: str = ""
 
+    # Chatbot (Phase 3.1). The DB-backed `bot_config.chatbot_enabled` flag
+    # gates whether replies actually go out; these env vars set model and
+    # rate-limit knobs.
+    openai_chat_model: str = "gpt-4o-mini"
+    chatbot_min_reply_interval_seconds: int = 30
+    chatbot_max_matches_per_reply: int = 3
+    # Site URL the chatbot links each match to. Falls through to the
+    # newsletter site URL when blank.
+    chatbot_site_base_url: str = ""
+
 
 settings = Settings()

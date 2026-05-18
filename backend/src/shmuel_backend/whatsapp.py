@@ -15,9 +15,10 @@ gatekeeps session-blob writes and inbound message ingestion.
 """
 from __future__ import annotations
 
+import logging
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -25,8 +26,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shmuel_backend import whatsapp_client
 from shmuel_backend.config import settings
-from shmuel_backend.db import get_session
+from shmuel_backend.db import SessionLocal, get_session
 from shmuel_backend.models import WhatsappMessage, WhatsappSession
+
+log = logging.getLogger(__name__)
 
 # --- Auth dependency -------------------------------------------------
 
@@ -168,6 +171,23 @@ async def put_session_blob(
 webhook_router = APIRouter(prefix="/webhooks/whatsapp", tags=["whatsapp-webhooks"])
 
 
+async def _dispatch_chatbot(message_pk: Any) -> None:
+    """Background-task entry point. Loads the message in a fresh session
+    and runs the chatbot pipeline. Exceptions are swallowed and logged
+    so a chatbot failure can never corrupt the inbound webhook response.
+    """
+    from shmuel_backend.chatbot import process_inbound
+
+    async with SessionLocal() as bg_session:
+        try:
+            msg = await bg_session.get(WhatsappMessage, message_pk)
+            if msg is None:
+                return
+            await process_inbound(bg_session, msg)
+        except Exception as exc:
+            log.warning("chatbot dispatch failed for %s: %s", message_pk, exc, exc_info=True)
+
+
 @webhook_router.post(
     "/inbound",
     dependencies=[Depends(require_daemon_token)],
@@ -175,65 +195,84 @@ webhook_router = APIRouter(prefix="/webhooks/whatsapp", tags=["whatsapp-webhooks
 async def inbound_message(
     msg: InboundMessage,
     session: Annotated[AsyncSession, Depends(get_session)],
+    background_tasks: BackgroundTasks,
 ) -> dict[str, str]:
-    """Store an inbound WhatsApp message.
+    """Store an inbound WhatsApp message and queue chatbot processing.
 
     Idempotent on (chat_jid, message_id) — the daemon may retry, and
     WhatsApp itself occasionally redelivers. On Postgres we use ON
     CONFLICT DO NOTHING; on SQLite (tests) we fall back to a
     select-then-insert. Either way, duplicate pushes are a no-op.
+
+    The chatbot pipeline runs as a FastAPI BackgroundTask so the daemon
+    sees a 200 within milliseconds — the LLM + send-DM round trip
+    happens after the response is sent.
     """
     if not msg.messageId:
         # Messages without a stable id come from system events — skip.
         return {"status": "skipped"}
 
+    stored_id = None
     bind = session.get_bind() if session.bind is None else session.bind
     dialect = bind.dialect.name if bind is not None else "postgresql"
 
     if dialect == "postgresql":
-        stmt = pg_insert(WhatsappMessage).values(
-            message_id=msg.messageId,
-            chat_jid=msg.chatJid,
-            from_jid=msg.fromJid,
-            from_phone=msg.fromPhone,
-            from_name=msg.fromName,
-            is_group=msg.isGroup,
-            group_id=msg.groupId,
-            group_name=msg.groupName,
-            text=msg.text,
-            media_type=msg.mediaType,
-            wa_timestamp=msg.timestamp,
-        ).on_conflict_do_nothing(
-            constraint="uq_whatsapp_messages_chat_id",
+        stmt = (
+            pg_insert(WhatsappMessage)
+            .values(
+                message_id=msg.messageId,
+                chat_jid=msg.chatJid,
+                from_jid=msg.fromJid,
+                from_phone=msg.fromPhone,
+                from_name=msg.fromName,
+                is_group=msg.isGroup,
+                group_id=msg.groupId,
+                group_name=msg.groupName,
+                text=msg.text,
+                media_type=msg.mediaType,
+                wa_timestamp=msg.timestamp,
+            )
+            .on_conflict_do_nothing(constraint="uq_whatsapp_messages_chat_id")
+            .returning(WhatsappMessage.id)
         )
-        await session.execute(stmt)
+        ret = await session.execute(stmt)
+        stored_id = ret.scalar_one_or_none()
         await session.commit()
-        return {"status": "stored"}
-
-    # SQLite / other — manual dup check.
-    existing = await session.execute(
-        select(WhatsappMessage).where(
-            WhatsappMessage.chat_jid == msg.chatJid,
-            WhatsappMessage.message_id == msg.messageId,
+        status_str = "stored" if stored_id is not None else "duplicate"
+    else:
+        # SQLite / other — manual dup check.
+        existing = await session.execute(
+            select(WhatsappMessage).where(
+                WhatsappMessage.chat_jid == msg.chatJid,
+                WhatsappMessage.message_id == msg.messageId,
+            )
         )
-    )
-    if existing.scalar_one_or_none() is not None:
-        return {"status": "duplicate"}
+        existing_row = existing.scalar_one_or_none()
+        if existing_row is not None:
+            stored_id = existing_row.id
+            status_str = "duplicate"
+        else:
+            row = WhatsappMessage(
+                message_id=msg.messageId,
+                chat_jid=msg.chatJid,
+                from_jid=msg.fromJid,
+                from_phone=msg.fromPhone,
+                from_name=msg.fromName,
+                is_group=msg.isGroup,
+                group_id=msg.groupId,
+                group_name=msg.groupName,
+                text=msg.text,
+                media_type=msg.mediaType,
+                wa_timestamp=msg.timestamp,
+            )
+            session.add(row)
+            await session.commit()
+            stored_id = row.id
+            status_str = "stored"
 
-    session.add(
-        WhatsappMessage(
-            message_id=msg.messageId,
-            chat_jid=msg.chatJid,
-            from_jid=msg.fromJid,
-            from_phone=msg.fromPhone,
-            from_name=msg.fromName,
-            is_group=msg.isGroup,
-            group_id=msg.groupId,
-            group_name=msg.groupName,
-            text=msg.text,
-            media_type=msg.mediaType,
-            wa_timestamp=msg.timestamp,
-        )
-    )
-    await session.commit()
-    return {"status": "stored"}
+    # Dispatch chatbot only for fresh 1:1 messages — duplicates and
+    # group messages don't need processing.
+    if status_str == "stored" and not msg.isGroup and stored_id is not None:
+        background_tasks.add_task(_dispatch_chatbot, stored_id)
+
+    return {"status": status_str}

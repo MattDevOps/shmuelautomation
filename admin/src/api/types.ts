@@ -243,6 +243,58 @@ export interface WhatsappQr {
   qrPng: string | null
 }
 
+export const THREAD_MODES = ['bot', 'human'] as const
+export type ThreadMode = (typeof THREAD_MODES)[number]
+
+export interface WhatsappThread {
+  id: string
+  chat_jid: string
+  phone_number: string | null
+  display_name: string | null
+  mode: ThreadMode
+  takeover_reason: string | null
+  contact_id: string | null
+  last_bot_reply_at: string | null
+  last_message_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface WhatsappThreadList {
+  threads: WhatsappThread[]
+  total: number
+}
+
+export interface WhatsappThreadMessage {
+  id: string
+  message_id: string
+  chat_jid: string
+  from_jid: string
+  from_phone: string | null
+  from_name: string | null
+  text: string | null
+  media_type: string | null
+  is_group: boolean
+  wa_timestamp: number
+  created_at: string
+}
+
+export interface WhatsappThreadDetail {
+  thread: WhatsappThread
+  messages: WhatsappThreadMessage[]
+}
+
+export interface BotConfig {
+  chatbot_enabled: boolean
+  greeting_he: string | null
+  greeting_en: string | null
+  takeover_notice_he: string | null
+  takeover_notice_en: string | null
+  updated_at: string
+}
+
+export type BotConfigUpdate = Partial<Omit<BotConfig, 'updated_at'>>
+
 export interface CloudPhoto {
   id: string
   property_id: string

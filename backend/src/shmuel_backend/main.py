@@ -31,6 +31,8 @@ from shmuel_backend.queue_routes import compose_router
 from shmuel_backend.queue_routes import router as queue_router
 from shmuel_backend.schemas import SystemStatus
 from shmuel_backend.sentry import configure_sentry
+from shmuel_backend.summaries_routes import router as whatsapp_summaries_router
+from shmuel_backend.threads import router as whatsapp_threads_router
 from shmuel_backend.translations import admin_router as translations_admin_router
 from shmuel_backend.translations import public_router as translations_public_router
 from shmuel_backend.whatsapp import admin_router as whatsapp_admin_router
@@ -90,6 +92,8 @@ app.include_router(newsletter_admin_router)
 app.include_router(translations_public_router)
 app.include_router(translations_admin_router)
 app.include_router(whatsapp_admin_router)
+app.include_router(whatsapp_threads_router)
+app.include_router(whatsapp_summaries_router)
 app.include_router(whatsapp_webhook_router)
 
 

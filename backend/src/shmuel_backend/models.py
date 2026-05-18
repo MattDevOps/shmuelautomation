@@ -25,6 +25,7 @@ from shmuel_backend.enums import (
     PropertyStatus,
     PropertyType,
     SubscriberPreference,
+    ThreadMode,
 )
 
 
@@ -366,5 +367,102 @@ class ContentTranslation(Base):
         Index(
             "ix_content_translations_lookup",
             "content_type", "content_slug", "lang",
+        ),
+    )
+
+
+class WhatsappThread(Base):
+    """Conversation state for a 1:1 WhatsApp thread.
+
+    One row per `chat_jid` (which for DMs is `<phone>@s.whatsapp.net`).
+    Group chats never get a thread row — the bot ignores them entirely.
+
+    `mode` decides whether the chatbot answers (BOT) or stays out of the
+    way (HUMAN). The classifier flips a thread to HUMAN as soon as it
+    sees a message it shouldn't auto-answer; an admin flips it back to
+    BOT via the takeover/release endpoint.
+
+    `last_processed_wa_ts` is the watermark — only messages with a
+    higher `wa_timestamp` are considered new for this thread. This
+    makes message processing idempotent under retry.
+    """
+
+    __tablename__ = "whatsapp_threads"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    chat_jid: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    phone_number: Mapped[str | None] = mapped_column(String(32), index=True)
+    display_name: Mapped[str | None] = mapped_column(String(200))
+    mode: Mapped[ThreadMode] = mapped_column(
+        Enum(ThreadMode, name="thread_mode", native_enum=False, length=8),
+        default=ThreadMode.BOT,
+        index=True,
+    )
+    takeover_reason: Mapped[str | None] = mapped_column(String(64))
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("contacts.id", ondelete="SET NULL"), index=True
+    )
+    last_processed_wa_ts: Mapped[int | None] = mapped_column(BigInteger)
+    last_bot_reply_at: Mapped[datetime | None] = mapped_column()
+    last_message_at: Mapped[datetime | None] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
+
+
+class BotConfig(Base):
+    """Single-row runtime config for the WhatsApp chatbot.
+
+    Lives in the DB (not env) so Shmuel can toggle the bot on/off from
+    the admin without a redeploy. `id` is always 'default' — enforced
+    via primary key, not a separate constraint, so upserts stay simple.
+    """
+
+    __tablename__ = "bot_config"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default="default")
+    chatbot_enabled: Mapped[bool] = mapped_column(default=False)
+    greeting_he: Mapped[str | None] = mapped_column(Text)
+    greeting_en: Mapped[str | None] = mapped_column(Text)
+    takeover_notice_he: Mapped[str | None] = mapped_column(Text)
+    takeover_notice_en: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ConversationSummary(Base):
+    """LLM-summarized rollup of a WhatsApp thread for the CRM.
+
+    Phase 3.2: a nightly job groups `whatsapp_messages` by `chat_jid`,
+    summarizes the last 24h (or since the previous summary), and writes
+    one row here per (chat_jid, day). `contact_id` is resolved at write
+    time by phone-match against `contacts`.
+
+    Idempotent on (chat_jid, period_end) — re-running the job for the
+    same window updates rather than duplicates.
+    """
+
+    __tablename__ = "conversation_summaries"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    chat_jid: Mapped[str] = mapped_column(String(128), index=True)
+    phone_number: Mapped[str | None] = mapped_column(String(32), index=True)
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("contacts.id", ondelete="SET NULL"), index=True
+    )
+    period_start: Mapped[datetime] = mapped_column()
+    period_end: Mapped[datetime] = mapped_column()
+    message_count: Mapped[int] = mapped_column(default=0)
+    summary: Mapped[str] = mapped_column(Text)
+    action_items: Mapped[list[str]] = mapped_column(JSON, default=list)
+    mentioned_amounts: Mapped[list[str]] = mapped_column(JSON, default=list)
+    mentioned_dates: Mapped[list[str]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now(), index=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "chat_jid", "period_end", name="uq_conversation_summaries_period"
         ),
     )
