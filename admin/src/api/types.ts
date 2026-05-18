@@ -295,6 +295,43 @@ export interface BotConfig {
 
 export type BotConfigUpdate = Partial<Omit<BotConfig, 'updated_at'>>
 
+export interface ConversationSummary {
+  id: string
+  chat_jid: string
+  phone_number: string | null
+  contact_id: string | null
+  period_start: string
+  period_end: string
+  message_count: number
+  summary: string
+  action_items: string[]
+  mentioned_amounts: string[]
+  mentioned_dates: string[]
+  created_at: string
+}
+
+export interface ConversationSummaryList {
+  summaries: ConversationSummary[]
+  total: number
+}
+
+export interface SummarizeRunRow {
+  thread_id: string
+  chat_jid: string
+  message_count: number
+  period_start: string | null
+  period_end: string | null
+  summary_id: string | null
+  skipped_reason: string | null
+}
+
+export interface SummarizeRunResult {
+  attempted: number
+  summarized: number
+  skipped: number
+  threads: SummarizeRunRow[]
+}
+
 export interface CloudPhoto {
   id: string
   property_id: string

@@ -71,5 +71,13 @@ class Settings(BaseSettings):
     # newsletter site URL when blank.
     chatbot_site_base_url: str = ""
 
+    # Daily digest (Phase 3.2). Recipient for the 08:00 Jerusalem
+    # rollup email of yesterday's summaries + open action items. Empty
+    # disables the digest (the endpoint reports a skip reason).
+    broker_email: str = ""
+    # How many hours of summaries to include in each digest. 24 = the
+    # full previous day; tune higher to catch slow-arriving messages.
+    digest_window_hours: int = 24
+
 
 settings = Settings()

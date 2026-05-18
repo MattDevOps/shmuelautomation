@@ -19,6 +19,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shmuel_backend.db import get_session
+from shmuel_backend.digest import send_daily_digest
 from shmuel_backend.models import ConversationSummary, WhatsappThread
 from shmuel_backend.summarizer import summarize_all_threads, summarize_thread
 
@@ -62,6 +63,14 @@ class SummarizeRunResult(BaseModel):
     summarized: int
     skipped: int
     threads: list[ThreadSummaryRunRow]
+
+
+class DigestResponse(BaseModel):
+    sent: bool
+    reason: str | None = None
+    summaries_included: int = 0
+    threads_included: int = 0
+    recipient: str | None = None
 
 
 def _result_to_run_row(r: Any) -> ThreadSummaryRunRow:
@@ -131,6 +140,26 @@ async def list_summaries(
     return SummaryList(
         summaries=[SummaryRead.model_validate(s) for s in rows.scalars().all()],
         total=int(total),
+    )
+
+
+@router.post("/summaries/send-digest", response_model=DigestResponse)
+async def send_digest_now(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> DigestResponse:
+    """Build + send the daily digest right now. Also the endpoint a
+    Cloud Scheduler cron will hit at 08:00 Jerusalem.
+
+    Returns a structured outcome — the admin UI shows the reason on
+    skip paths (no_recipient, no_summaries, resend_no_op, resend_failed)
+    so it's obvious why nothing reached the inbox."""
+    result = await send_daily_digest(session)
+    return DigestResponse(
+        sent=result.sent,
+        reason=result.reason,
+        summaries_included=result.summaries_included,
+        threads_included=result.threads_included,
+        recipient=result.recipient,
     )
 
 

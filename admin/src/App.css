@@ -1672,6 +1672,74 @@ label.field > .label-text,
   white-space: pre-wrap;
 }
 
+/* ───── Conversation summaries page ───────────────────────────── */
+.summary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.summary-card {
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  background: var(--paper);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm, 8px);
+}
+.summary-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+.summary-card-header h2 {
+  margin: 0;
+  font-size: 1.1em;
+}
+.summary-card-meta {
+  font-size: 0.85em;
+  color: #6b7280;
+}
+.summary-text {
+  margin: 0;
+  line-height: 1.55;
+}
+.summary-section {
+  margin-top: 4px;
+}
+.summary-action-list {
+  margin: 4px 0 0;
+  padding-left: 1.2em;
+}
+.summary-action-list li {
+  margin-bottom: 2px;
+}
+.summary-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.summary-pill {
+  font-size: 0.75em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+.summary-pill-amount {
+  background: #fef3c7;
+  color: #92400e;
+}
+.summary-pill-date {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
 /* ───── Mobile / tablet overrides ──────────────────────────────────
    These rules need to win over their desktop counterparts on small
    screens, so they live at the bottom of the file (CSS source order
