@@ -438,6 +438,51 @@ No extra secrets — both features reuse `OPENAI_API_KEY` (already set in §1.3)
 plus the daemon URL/token (§5.2). The Alembic migration
 `c4f8a02e1d09_whatsapp_threads_botconfig_summaries` adds the three new tables.
 
+## 5.4 Daily digest email + scheduler crons
+
+Wires the digest endpoint to fire automatically at 08:00 Jerusalem,
+preceded by a summarization pass at 07:55 so the bot's overnight
+conversations get rolled up before the email goes out.
+
+```bash
+# 1. Recipient — single email for the broker.
+echo -n "classicjerusaleminfo@gmail.com" | \
+  gcloud secrets create broker-email --data-file=-
+gcloud secrets add-iam-policy-binding broker-email \
+  --member="serviceAccount:631083462079-compute@developer.gserviceaccount.com" \
+  --role=roles/secretmanager.secretAccessor
+# Wire to Cloud Run (already in deploy-backend.yml `--set-secrets`).
+gcloud run services update classic-jerusalem-realty-api --region europe-west1 \
+  --update-secrets BROKER_EMAIL=broker-email:latest
+
+# 2. Schedulers — both jobs hit prod with X-API-Key.
+gcloud services enable cloudscheduler.googleapis.com
+BACKEND_API_KEY=$(gcloud secrets versions access latest --secret=backend-api-key)
+
+gcloud scheduler jobs create http whatsapp-summarize-nightly \
+  --location europe-west1 \
+  --schedule "55 7 * * *" --time-zone "Asia/Jerusalem" \
+  --uri "https://api.classicjerusalem.com/whatsapp/summaries/run" \
+  --http-method POST --headers "X-API-Key=$BACKEND_API_KEY" \
+  --max-retry-attempts 3 --attempt-deadline 540s
+
+gcloud scheduler jobs create http whatsapp-daily-digest \
+  --location europe-west1 \
+  --schedule "0 8 * * *" --time-zone "Asia/Jerusalem" \
+  --uri "https://api.classicjerusalem.com/whatsapp/summaries/send-digest" \
+  --http-method POST --headers "X-API-Key=$BACKEND_API_KEY" \
+  --max-retry-attempts 3 --attempt-deadline 60s
+
+# 3. Verify — fire each manually once.
+gcloud scheduler jobs run whatsapp-summarize-nightly --location europe-west1
+gcloud scheduler jobs run whatsapp-daily-digest --location europe-west1
+```
+
+Tune `DIGEST_WINDOW_HOURS` (default 24) if 24h is too noisy or too
+quiet. The endpoint returns a structured `{sent, reason}` body — admin's
+Summaries page surfaces the reason inline so it's obvious when a digest
+was skipped (no_recipient / no_summaries / resend_no_op / resend_failed).
+
 ## 6. Smoke test
 
 Run `bash deploy/post-deploy-check.sh` for the full network-level chain (9 checks: backend, admin gating, WP shortcode renderer). Should print `9 passed, 0 failed`.

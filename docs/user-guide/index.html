@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Classic Jerusalem Realty — Admin Guide</title>
+<style>
+  :root {
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --paper: #fff;
+    --bg: #faf6ef;
+    --edge: #ece4d2;
+    --accent: #8b3a3a;
+    --accent-dark: #6b2828;
+    --golden: #c79b25;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Lato", -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
+    line-height: 1.6;
+    color: var(--ink);
+    margin: 0;
+    background: var(--bg);
+  }
+  header.site {
+    background: var(--paper);
+    border-bottom: 1px solid var(--edge);
+    padding: 32px 0;
+    text-align: center;
+  }
+  header.site h1 {
+    font-family: "Georgia", serif;
+    margin: 0 0 6px;
+    font-size: 2em;
+  }
+  header.site p {
+    color: var(--muted);
+    margin: 0;
+  }
+  nav.toc {
+    background: var(--paper);
+    border-bottom: 1px solid var(--edge);
+    padding: 12px 24px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  nav.toc a {
+    color: var(--ink);
+    text-decoration: none;
+    margin-right: 18px;
+    font-size: 0.9em;
+    font-weight: 500;
+  }
+  nav.toc a:hover { color: var(--accent); }
+  main {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  section {
+    background: var(--paper);
+    border: 1px solid var(--edge);
+    border-radius: 10px;
+    padding: 32px;
+    margin-bottom: 28px;
+  }
+  section h2 {
+    font-family: "Georgia", serif;
+    margin: 0 0 8px;
+    font-size: 1.6em;
+    color: var(--accent);
+  }
+  section .lede {
+    color: var(--muted);
+    margin: 0 0 20px;
+    font-size: 1.05em;
+  }
+  section img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    margin: 20px 0;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  }
+  h3 {
+    font-family: "Georgia", serif;
+    margin: 22px 0 6px;
+    font-size: 1.15em;
+  }
+  ol, ul {
+    padding-left: 22px;
+  }
+  ol li, ul li {
+    margin-bottom: 6px;
+  }
+  .callout {
+    background: #fff8e1;
+    border-left: 4px solid var(--golden);
+    padding: 14px 16px;
+    border-radius: 4px;
+    margin: 18px 0;
+  }
+  .callout strong { color: #8b6500; }
+  code {
+    background: #f3efe6;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    font-size: 0.9em;
+  }
+  .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 18px 0;
+  }
+  .quick-action {
+    background: var(--bg);
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    padding: 14px 16px;
+  }
+  .quick-action strong { color: var(--accent); }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.9em;
+    padding: 30px 24px;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 0.7em;
+    background: #ecfdf5;
+    color: #047857;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    vertical-align: middle;
+    margin-left: 8px;
+  }
+  .badge-new { background: #fef3c7; color: #92400e; }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <h1>Classic Jerusalem Realty</h1>
+  <p>Admin guide — how to use everything</p>
+</header>
+
+<section style="max-width:920px;margin:32px auto 0;padding:0 24px;">
+  <video controls preload="metadata" poster="screenshots/properties.png"
+         style="width:100%;border:1px solid #ece4d2;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.08);background:#000;">
+    <source src="admin-tour.mp4" type="video/mp4">
+    Your browser doesn't play MP4. Scroll down for the same content as screenshots.
+  </video>
+  <p style="text-align:center;color:#6b7280;font-size:.9em;margin-top:8px;">
+    72-second walkthrough of every page. Read the sections below for detail.
+  </p>
+</section>
+
+<nav class="toc">
+  <a href="#overview">Overview</a>
+  <a href="#properties">Properties</a>
+  <a href="#queue">Queue</a>
+  <a href="#groups">Groups</a>
+  <a href="#contacts">Contacts</a>
+  <a href="#newsletter">Newsletter</a>
+  <a href="#chatbot">Chatbot</a>
+  <a href="#summaries">Summaries</a>
+  <a href="#system">System</a>
+  <a href="#settings">Settings</a>
+  <a href="#daily">Daily flow</a>
+</nav>
+
+<main>
+
+<section id="overview">
+  <h2>What you have</h2>
+  <p class="lede">
+    The admin runs at <code>admin.classicjerusalem.com</code>. Sign in with
+    your Cloudflare Access email + PIN once per device. Everything below
+    lives in that single dashboard.
+  </p>
+  <div class="quick-actions">
+    <div class="quick-action"><strong>Properties</strong><br>Your listing database — what's for rent, for sale, photos, owner contact.</div>
+    <div class="quick-action"><strong>Queue</strong><br>Twice-daily slots that tell you which property to share next.</div>
+    <div class="quick-action"><strong>Groups</strong><br>WhatsApp + Facebook + Janglo destinations the share modal posts to.</div>
+    <div class="quick-action"><strong>Contacts</strong><br>Your address book — buyers, renters, owners, tagged by segment.</div>
+    <div class="quick-action"><strong>Newsletter</strong><br>Subscribers from the public site, automatic digest every 3 new listings.</div>
+    <div class="quick-action"><strong>Chatbot</strong> <span class="badge badge-new">New</span><br>Auto-replies to inbound WhatsApp DMs with matching listings.</div>
+    <div class="quick-action"><strong>Summaries</strong> <span class="badge badge-new">New</span><br>LLM rollups of each conversation + a daily email digest at 8am.</div>
+    <div class="quick-action"><strong>System</strong><br>Health dashboard — backend, Drive, queue, WhatsApp daemon.</div>
+  </div>
+  <div class="callout">
+    <strong>Where to start:</strong> open the <em>System</em> page — if every card
+    reads green, the whole stack is healthy. Anything red points you at what to fix.
+  </div>
+</section>
+
+<section id="properties">
+  <h2>Properties</h2>
+  <p class="lede">
+    Your listing database. Every rental and sale lives here with price,
+    rooms, neighborhood, owner contact, photos, and notes.
+  </p>
+  <img src="screenshots/properties.png" alt="Properties list">
+  <h3>What you can do</h3>
+  <ul>
+    <li><strong>Filter</strong> by type (rent/sale), status (available/rented/sold), neighborhood, or free-text search.</li>
+    <li><strong>Bulk-update status</strong> — tick the rows on the left, set the new status, hit apply. Useful when a building sells two units at once.</li>
+    <li><strong>Export to Excel</strong> — top-right link drops the current filtered list to a spreadsheet.</li>
+    <li><strong>Import from Yad2</strong> — paste a Yad2 URL on the Import page; it scrapes price, rooms, photos, location.</li>
+    <li><strong>Edit a property</strong> — click any row to open the full edit page with photos, owner contact, broker fee, notes timeline.</li>
+  </ul>
+  <img src="screenshots/property-edit.png" alt="Property edit page">
+  <div class="callout">
+    <strong>Photos:</strong> photos live in your connected Google Drive folder.
+    Upload from the property edit page; they sync to the public site
+    automatically. The Notes timeline at the bottom is for dated entries
+    like "called landlord — available end of month" or "showing 4pm with the Cohens."
+  </div>
+</section>
+
+<section id="queue">
+  <h2>Queue</h2>
+  <p class="lede">
+    Your daily posting schedule. The system computes two slots per day
+    (default 08:00 and 20:00 Jerusalem) with capacity for ~3 posts each,
+    skipping Shabbat automatically.
+  </p>
+  <img src="screenshots/queue.png" alt="Queue page">
+  <h3>How it works</h3>
+  <ol>
+    <li><strong>Due now</strong> shows the properties up for posting this slot.</li>
+    <li>Click <strong>Compose &amp; share</strong> to open the share modal.</li>
+    <li>The modal pre-composes the Hebrew + English post text and lists every active group on each platform.</li>
+    <li>Click <strong>Copy text</strong> or <strong>Open WhatsApp</strong> for each group — the text is already on your clipboard.</li>
+    <li>Once you've posted, click <strong>Mark slot as posted</strong>. The slot moves out of the queue.</li>
+  </ol>
+  <img src="screenshots/share-modal.png" alt="Share modal">
+  <div class="callout">
+    <strong>Skipping vs cancelling:</strong> <em>Skip</em> means "not this slot, try
+    again next time." <em>Cancel</em> removes it permanently — usually only used
+    after the unit goes rented/sold.
+  </div>
+</section>
+
+<section id="groups">
+  <h2>Groups</h2>
+  <p class="lede">
+    Destinations the share modal offers. Bucketed by platform (WhatsApp,
+    WhatsApp Status, Facebook, Janglo) and tagged by audience
+    (rent/sale/both) so a rental property doesn't show buy-only groups.
+  </p>
+  <img src="screenshots/groups.png" alt="Groups page">
+  <h3>What you can do</h3>
+  <ul>
+    <li>Add a new group — name, platform, audience, target URL (the chat invite or page URL).</li>
+    <li>Re-order — affects the order they appear in the share modal.</li>
+    <li>Toggle active/inactive — temporarily hide a group without deleting it.</li>
+  </ul>
+  <div class="callout">
+    <strong>WhatsApp group IDs:</strong> for the chatbot's auto-poster to dispatch
+    to a group, put the group's JID (looks like <code>12345-67890@g.us</code>) in
+    the target URL. You can pull these from the daemon's <code>/whatsapp/groups</code> endpoint once paired.
+  </div>
+</section>
+
+<section id="contacts">
+  <h2>Contacts</h2>
+  <p class="lede">
+    Your address book — anyone who's contacted you about a property. Tag
+    them with segments like "buyer", "rental-lead", "talbiya", "vip" to
+    cluster who's interested in what.
+  </p>
+  <img src="screenshots/contacts.png" alt="Contacts page">
+  <h3>What you can do</h3>
+  <ul>
+    <li><strong>Search</strong> by name or phone, <strong>filter</strong> by segments.</li>
+    <li><strong>Import a CSV</strong> from the Import button — useful for migrating from another system.</li>
+    <li><strong>Export</strong> for a backup or a one-time outreach campaign.</li>
+    <li><strong>Add segments inline</strong> — type a new tag and it appears on the chip list.</li>
+    <li><strong>Notes</strong> field per contact for private context that doesn't fit in segments.</li>
+  </ul>
+</section>
+
+<section id="newsletter">
+  <h2>Newsletter</h2>
+  <p class="lede">
+    Subscribers from the floating "Stay in the loop" widget on
+    classicjerusalem.com. They get a digest email whenever three new
+    properties match their preference (rent / sale / both).
+  </p>
+  <img src="screenshots/newsletter.png" alt="Newsletter page">
+  <h3>What you can do</h3>
+  <ul>
+    <li><strong>See the stats:</strong> confirmed, pending, unsubscribed counts at the top.</li>
+    <li><strong>Preview next digest:</strong> click the button to see exactly what
+    the next email will look like before it sends.</li>
+    <li><strong>Delete a subscriber:</strong> permanent. Usually used to clean up
+    test emails.</li>
+  </ul>
+  <div class="callout">
+    <strong>No double opt-in.</strong> When someone signs up on the site, they're
+    auto-confirmed and get a welcome email immediately. Unsubscribe is a
+    one-click link in every digest.
+  </div>
+</section>
+
+<section id="chatbot">
+  <h2>WhatsApp Chatbot <span class="badge badge-new">New</span></h2>
+  <p class="lede">
+    Auto-replies to inbound WhatsApp DMs from leads. Classifies each
+    message: catalog search → reply with 2-3 matching properties; off-catalog
+    question → flag the thread for your personal follow-up.
+  </p>
+  <img src="screenshots/chatbot.png" alt="Chatbot page">
+  <h3>How it works</h3>
+  <ol>
+    <li>A lead messages your dedicated chatbot WhatsApp number.</li>
+    <li>The daemon forwards the message to the backend; the bot classifies
+    intent with an LLM.</li>
+    <li><strong>Search</strong> → the bot finds matching properties in your DB
+    and replies with the top 3, names, prices, links.</li>
+    <li><strong>Question</strong> (showings, neighborhood Q&amp;A, pet policy,
+    schedule) → the bot flips the thread to <em>HUMAN</em> mode, sends a
+    polite "Shmuel will get back to you" message, and stops replying for
+    that thread.</li>
+    <li>You see the flagged thread on this page, take it over, reply
+    yourself, then click <strong>Release to bot</strong> to let the bot
+    handle their next search query.</li>
+  </ol>
+  <h3>The on/off toggle</h3>
+  <p>
+    The bot is <strong>off by default</strong>. Once your 2nd phone is paired,
+    flip the big switch at the top of this page to turn it on. The
+    toggle is per-installation, so you can disable globally for Shabbat
+    or during holidays.
+  </p>
+  <div class="callout">
+    <strong>What the bot will NOT answer:</strong> anything outside the catalog.
+    Pricing negotiation, viewings, neighborhood vibes, legal questions,
+    pet rules, parking — all routed to you as human takeovers. The bot's
+    job is to qualify cold leads instantly, not replace your judgement.
+  </div>
+</section>
+
+<section id="summaries">
+  <h2>Conversation summaries <span class="badge badge-new">New</span></h2>
+  <p class="lede">
+    LLM rollups of each WhatsApp thread. Each summary covers messages
+    since the previous run, extracts action items, and lists mentioned
+    prices + dates as pills for easy scanning.
+  </p>
+  <img src="screenshots/summaries.png" alt="Summaries page">
+  <h3>What you'll see</h3>
+  <ul>
+    <li><strong>One card per thread</strong> with a paragraph summary.</li>
+    <li><strong>Action items</strong> — what the bot thinks you still owe the lead.</li>
+    <li><strong>Yellow pills</strong> = amounts the lead mentioned.</li>
+    <li><strong>Blue pills</strong> = dates / timeframes the lead mentioned.</li>
+  </ul>
+  <h3>Two buttons</h3>
+  <ul>
+    <li><strong>Summarize now</strong> — manual trigger. Pulls every active
+    thread with new messages and re-summarizes. Useful before reading
+    catch-up.</li>
+    <li><strong>Send daily digest</strong> — bundles yesterday's summaries
+    + every open action item into one email to you. Auto-fires at
+    08:00 Jerusalem time every day via Cloud Scheduler.</li>
+  </ul>
+  <div class="callout">
+    <strong>Your 8am email:</strong> once the chatbot is on and the daily cron is
+    firing, expect a structured email each morning at 08:00 with
+    yesterday's threads. Top section lists every open action item so you
+    know what to chase before opening the admin.
+  </div>
+</section>
+
+<section id="system">
+  <h2>System</h2>
+  <p class="lede">
+    At-a-glance health dashboard. Open this first when something feels
+    wrong; if every card is green, you're fine.
+  </p>
+  <img src="screenshots/system.png" alt="System dashboard">
+  <h3>What each card tells you</h3>
+  <ul>
+    <li><strong>Backend</strong> — is the FastAPI service alive + connected to Postgres.</li>
+    <li><strong>Google Drive</strong> — your photo storage. Click "Connect now" once after deploy.</li>
+    <li><strong>Posts due now</strong> — how many queue slots are waiting on your action.</li>
+    <li><strong>Available properties</strong> — total active listings.</li>
+    <li><strong>Contacts</strong> — count of your address book.</li>
+    <li><strong>Active groups</strong> — destinations the share modal will offer.</li>
+    <li><strong>WhatsApp daemon</strong> <span class="badge badge-new">New</span> — is the 2nd-phone WhatsApp link alive. Red when unpaired or disconnected.</li>
+  </ul>
+</section>
+
+<section id="settings">
+  <h2>Settings</h2>
+  <p class="lede">
+    Per-installation knobs. The two big things here: connect Google Drive
+    for photos, and pair your WhatsApp daemon for the chatbot.
+  </p>
+  <img src="screenshots/settings-full.png" alt="Settings page">
+  <h3>Connecting Google Drive</h3>
+  <ol>
+    <li>Click <strong>Connect Google Drive</strong>.</li>
+    <li>Choose the Google account you want photos to live under.</li>
+    <li>Pick the folder (or accept the default <em>Classic Jerusalem Realty</em>).</li>
+    <li>You'll bounce back to Settings with a "connected" status.</li>
+  </ol>
+  <h3>Pairing the WhatsApp daemon</h3>
+  <ol>
+    <li>On your <strong>2nd phone</strong> (the dedicated chatbot number),
+    open WhatsApp.</li>
+    <li>Settings → <strong>Linked Devices</strong> → <strong>Link a Device</strong>.</li>
+    <li>Scan the QR shown on this Settings page.</li>
+    <li>The daemon stores the auth blob in our backend Postgres so a Fly
+    redeploy never asks for the QR again.</li>
+  </ol>
+  <div class="callout">
+    <strong>If the QR expires:</strong> just hit refresh — a new one regenerates
+    every ~60 seconds. The pairing process completes in under 10 seconds
+    once scanned successfully.
+  </div>
+</section>
+
+<section id="daily">
+  <h2>Your typical day</h2>
+  <p class="lede">
+    A rough timeline of how the system supports your day-to-day.
+  </p>
+  <ol>
+    <li><strong>07:55 (automatic):</strong> Cloud Scheduler hits the
+    summarize endpoint — all of last night's chatbot threads get fresh
+    summaries.</li>
+    <li><strong>08:00 (automatic):</strong> Your daily digest email
+    lands in your inbox with yesterday's threads and open action items.</li>
+    <li><strong>08:00 (queue):</strong> The morning posting slot becomes
+    "due" on the Queue page. Open the admin, hit Compose &amp; share for
+    each property, mark posted.</li>
+    <li><strong>Throughout the day:</strong> the chatbot auto-replies to
+    inbound DMs that match a property in your DB. Off-catalog questions
+    flag for your follow-up on the Chatbot page.</li>
+    <li><strong>20:00 (queue):</strong> Evening posting slot.</li>
+    <li><strong>Friday 13:00 onward:</strong> Shabbat block kicks in. No
+    posts go out until Saturday 21:00. The chatbot continues to read
+    inbound messages but if you've toggled it off for Shabbat, it stays
+    silent.</li>
+  </ol>
+  <div class="callout">
+    <strong>Newsletter cadence:</strong> independent of the daily flow.
+    Whenever three new available properties match a subscriber's
+    preference since their last digest, they get an email. No manual
+    sends needed.
+  </div>
+</section>
+
+</main>
+
+<footer>
+  Classic Jerusalem Realty — Admin Guide ·
+  Generated 2026-05-18 ·
+  Questions? <a href="mailto:mattstermh@hotmail.com">mattstermh@hotmail.com</a>
+</footer>
+
+</body>
+</html>

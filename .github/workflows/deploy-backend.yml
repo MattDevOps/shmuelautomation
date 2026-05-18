@@ -82,7 +82,7 @@ jobs:
             --cpu 1 \
             --port 8000 \
             --set-env-vars "^|^ENVIRONMENT=production|CORS_ORIGINS=[\"https://admin.classicjerusalem.com\",\"https://classicjerusalem.com\",\"https://realestateadmin2025.classicjerusalem.com\"]|GOOGLE_OAUTH_REDIRECT_URI=https://api.classicjerusalem.com/auth/google/callback|ADMIN_REDIRECT_URI=https://admin.classicjerusalem.com/settings|NEWSLETTER_FROM_EMAIL=Classic Jerusalem Realty <newsletter@classicjerusalem.com>|NEWSLETTER_API_BASE_URL=https://api.classicjerusalem.com|NEWSLETTER_SITE_BASE_URL=https://classicjerusalem.com|NEWSLETTER_DIGEST_THRESHOLD=3" \
-            --set-secrets "ENCRYPTION_KEY=encryption-key:latest,GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest,DATABASE_URL=database-url:latest,BACKEND_API_KEY=backend-api-key:latest,RESEND_API_KEY=resend-api-key:latest,OPENAI_API_KEY=openai-api-key:latest,WHATSAPP_DAEMON_URL=whatsapp-daemon-url:latest,WHATSAPP_DAEMON_TOKEN=whatsapp-daemon-token:latest"
+            --set-secrets "ENCRYPTION_KEY=encryption-key:latest,GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest,GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest,DATABASE_URL=database-url:latest,BACKEND_API_KEY=backend-api-key:latest,RESEND_API_KEY=resend-api-key:latest,OPENAI_API_KEY=openai-api-key:latest,WHATSAPP_DAEMON_URL=whatsapp-daemon-url:latest,WHATSAPP_DAEMON_TOKEN=whatsapp-daemon-token:latest,BROKER_EMAIL=broker-email:latest"
 
       - name: Smoke-test the new revision
         run: |
