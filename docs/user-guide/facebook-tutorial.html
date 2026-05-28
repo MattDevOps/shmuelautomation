@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How to publish a listing to Facebook — Classic Jerusalem Realty</title>
+<style>
+  :root {
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --paper: #fff;
+    --bg: #faf6ef;
+    --edge: #ece4d2;
+    --accent: #8b3a3a;
+    --accent-dark: #6b2828;
+    --golden: #c79b25;
+    --fb: #1877f2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Lato", -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
+    line-height: 1.65;
+    color: var(--ink);
+    margin: 0;
+    background: var(--bg);
+  }
+  header.site {
+    background: var(--paper);
+    border-bottom: 1px solid var(--edge);
+    padding: 34px 24px;
+    text-align: center;
+  }
+  header.site .kicker {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.78em;
+    color: var(--accent);
+    font-weight: 700;
+    margin: 0 0 8px;
+  }
+  header.site h1 {
+    font-family: "Georgia", serif;
+    margin: 0 0 8px;
+    font-size: 2em;
+  }
+  header.site p { color: var(--muted); margin: 0; }
+  main { max-width: 820px; margin: 0 auto; padding: 28px 22px 80px; }
+  section {
+    background: var(--paper);
+    border: 1px solid var(--edge);
+    border-radius: 10px;
+    padding: 26px 28px;
+    margin-bottom: 22px;
+  }
+  section h2 {
+    font-family: "Georgia", serif;
+    margin: 0 0 10px;
+    font-size: 1.45em;
+    color: var(--accent);
+  }
+  .lede { color: var(--muted); font-size: 1.08em; margin: 0 0 6px; }
+  img {
+    display: block; max-width: 100%; height: auto;
+    border: 1px solid var(--edge); border-radius: 6px;
+    margin: 18px 0; box-shadow: 0 4px 14px rgba(0,0,0,.06);
+  }
+  .step {
+    display: flex; gap: 16px; align-items: flex-start;
+    padding: 18px 0; border-top: 1px solid var(--edge);
+  }
+  .step:first-of-type { border-top: 0; }
+  .step .num {
+    flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1em; font-family: "Georgia", serif;
+  }
+  .step .body { flex: 1 1 auto; }
+  .step .body h3 { margin: 4px 0 4px; font-size: 1.1em; }
+  .step .body p { margin: 0 0 6px; }
+  .callout {
+    background: #fff8e1; border-left: 4px solid var(--golden);
+    padding: 14px 16px; border-radius: 4px; margin: 16px 0;
+  }
+  .callout strong { color: #8b6500; }
+  .callout.info { background: #eef4ff; border-left-color: var(--fb); }
+  .callout.info strong { color: #0b4ea2; }
+  code {
+    background: #f3efe6; padding: 2px 6px; border-radius: 3px;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 0.9em;
+  }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  .pill {
+    display: inline-block; background: var(--accent); color: #fff;
+    padding: 1px 9px; border-radius: 999px; font-size: 0.85em; font-weight: 600;
+  }
+  footer { text-align: center; color: var(--muted); font-size: 0.9em; padding: 26px; }
+  a { color: var(--accent-dark); }
+  @media print {
+    body { background: #fff; }
+    section { box-shadow: none; border-color: #ddd; page-break-inside: avoid; }
+    nav.back { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <p class="kicker">Classic Jerusalem Realty</p>
+  <h1>Publishing a listing to Facebook</h1>
+  <p>A simple, step-by-step guide. Print it or keep it open while you post.</p>
+</header>
+
+<main>
+
+<nav class="back" style="margin-bottom:18px;">
+  <a href="index.html">&larr; Back to the full admin guide</a>
+</nav>
+
+<section>
+  <h2>What this does (and what it doesn't)</h2>
+  <p class="lede">
+    The system writes your Facebook post for you — the listing's text, price,
+    and details, in Hebrew and English. It puts that text on your clipboard
+    and points you straight at your Facebook group. You then paste it, add the
+    photos, and press <strong>Post</strong>.
+  </p>
+  <div class="callout info">
+    <strong>Why you still press Post yourself:</strong> Facebook does not allow
+    apps to auto-post into groups — accounts that do it get blocked. So the
+    system does the slow part (writing and formatting the post) and leaves the
+    final tap to you. Think of it as a one-tap helper, not a robot. This keeps
+    your Facebook account safe.
+  </div>
+</section>
+
+<section>
+  <h2>One-time setup: add your Facebook groups</h2>
+  <p class="lede">Do this once. After that, every post takes seconds.</p>
+  <img src="screenshots/groups.png" alt="Groups page in the admin">
+  <ol>
+    <li>Open the admin and go to the <span class="pill">Groups</span> page.</li>
+    <li>Click <strong>Add group</strong>.</li>
+    <li>Fill in:
+      <ul>
+        <li><strong>Name</strong> — e.g. "Jerusalem Apartments for Rent".</li>
+        <li><strong>Platform</strong> — choose <strong>Facebook</strong>.</li>
+        <li><strong>Audience</strong> — Rent, Sale, or Both. (A rental listing
+        will then only show your rental groups, so you never post a rental into
+        a buyers-only group.)</li>
+        <li><strong>Target URL</strong> — open the group in your browser, copy
+        the address from the top bar, and paste it here. This is the link the
+        share screen will open for you.</li>
+      </ul>
+    </li>
+    <li>Save. Repeat for each Facebook group you post to.</li>
+  </ol>
+  <div class="callout">
+    <strong>Tip:</strong> add every group you use — buyers, renters,
+    neighborhood groups. The more you set up now, the less typing later.
+  </div>
+</section>
+
+<section>
+  <h2>Posting a listing — step by step</h2>
+  <p class="lede">
+    Once your groups are set up, this is the everyday flow.
+  </p>
+
+  <div class="step">
+    <div class="num">1</div>
+    <div class="body">
+      <h3>Open the listing you want to post</h3>
+      <p>Two easy ways:</p>
+      <ul>
+        <li>Open the <span class="pill">Queue</span> page — it shows you which
+        listings are due to post right now, so you don't have to think about
+        what to share.</li>
+        <li>Or open the <span class="pill">Properties</span> page and click the
+        listing you have in mind.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">2</div>
+    <div class="body">
+      <h3>Click "Compose &amp; share"</h3>
+      <p>A share box opens. It already contains the finished post — a clean
+      write-up of the apartment with price, rooms, neighborhood, and size, in
+      both Hebrew and English.</p>
+      <img src="screenshots/share-modal.png" alt="The share box with ready-made post text and your groups">
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">3</div>
+    <div class="body">
+      <h3>Read it over (and edit if you like)</h3>
+      <p>The text is ready to go, but it's yours — feel free to tweak a word,
+      add a line, or drop in a hashtag before you copy it.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">4</div>
+    <div class="body">
+      <h3>Click "Copy text"</h3>
+      <p>The whole post is now on your clipboard, ready to paste. (You'll paste
+      it into Facebook in a moment.)</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">5</div>
+    <div class="body">
+      <h3>Grab the photos</h3>
+      <p>Open the listing's photos (from the property's photo section) and save
+      the ones you want to post — usually 3 to 6 of the best shots. Facebook
+      posts with photos get far more views than text alone.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">6</div>
+    <div class="body">
+      <h3>Open your Facebook group</h3>
+      <p>In the share box, click the Facebook group you want to post to. It
+      opens that group in a new tab. Start a new post there.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">7</div>
+    <div class="body">
+      <h3>Paste, add photos, and Post</h3>
+      <p>Paste the text (<code>Ctrl&nbsp;+&nbsp;V</code>, or <code>&#8984;&nbsp;+&nbsp;V</code> on a Mac),
+      attach the photos you saved, and press Facebook's <strong>Post</strong>
+      button. That's it — the listing is live in that group.</p>
+      <p>Repeat steps 6–7 for each group you want to share it in. The text is
+      still on your clipboard, so you can paste it again and again.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">8</div>
+    <div class="body">
+      <h3>Mark it posted in the admin</h3>
+      <p>Come back to the share box and click <strong>Mark slot as posted</strong>.
+      This tells the system you've shared this one, so it moves on and suggests
+      the next listing next time — you'll never lose track or double-post.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Good habits</h2>
+  <ul>
+    <li><strong>Post at the busy times.</strong> The Queue suggests two windows
+    a day (morning and evening) when groups are most active.</li>
+    <li><strong>Shabbat is handled for you.</strong> The system won't suggest
+    posts from Friday afternoon until Saturday night, so you don't have to
+    remember.</li>
+    <li><strong>Always include photos.</strong> A listing with photos gets many
+    more replies than one without.</li>
+    <li><strong>Don't spam one group.</strong> Posting the same apartment into
+    the same group several times a day can get you muted or removed. Once per
+    posting window is plenty.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>If something doesn't work</h2>
+  <ul>
+    <li><strong>"Copy text" didn't seem to do anything.</strong> It copies
+    silently — just go to Facebook and paste. If nothing pastes, select the
+    text in the box manually and copy it the normal way.</li>
+    <li><strong>The group link opens the wrong place.</strong> Go to the
+    <span class="pill">Groups</span> page, open the group, and re-paste its
+    correct web address into the Target URL field.</li>
+    <li><strong>I don't see my Facebook group in the share box.</strong> Either
+    it isn't added yet (add it on the Groups page) or its audience doesn't match
+    this listing — e.g. a rental listing won't show a sale-only group. Check the
+    group's audience setting.</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  Classic Jerusalem Realty — Facebook posting guide ·
+  Questions? <a href="mailto:mattstermh@hotmail.com">mattstermh@hotmail.com</a>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Setting up your WhatsApp chatbot — Classic Jerusalem Realty</title>
+<style>
+  :root {
+    --ink: #1f2937;
+    --muted: #6b7280;
+    --paper: #fff;
+    --bg: #faf6ef;
+    --edge: #ece4d2;
+    --accent: #8b3a3a;
+    --accent-dark: #6b2828;
+    --golden: #c79b25;
+    --wa: #25d366;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Lato", -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
+    line-height: 1.65;
+    color: var(--ink);
+    margin: 0;
+    background: var(--bg);
+  }
+  header.site {
+    background: var(--paper);
+    border-bottom: 1px solid var(--edge);
+    padding: 34px 24px;
+    text-align: center;
+  }
+  header.site .kicker {
+    text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.78em;
+    color: var(--accent); font-weight: 700; margin: 0 0 8px;
+  }
+  header.site h1 {
+    font-family: "Georgia", serif; margin: 0 0 8px; font-size: 2em;
+  }
+  header.site p { color: var(--muted); margin: 0; }
+  main { max-width: 820px; margin: 0 auto; padding: 28px 22px 80px; }
+  section {
+    background: var(--paper); border: 1px solid var(--edge); border-radius: 10px;
+    padding: 26px 28px; margin-bottom: 22px;
+  }
+  section h2 {
+    font-family: "Georgia", serif; margin: 0 0 10px; font-size: 1.45em; color: var(--accent);
+  }
+  .lede { color: var(--muted); font-size: 1.08em; margin: 0 0 6px; }
+  img {
+    display: block; max-width: 100%; height: auto; border: 1px solid var(--edge);
+    border-radius: 6px; margin: 18px 0; box-shadow: 0 4px 14px rgba(0,0,0,.06);
+  }
+  .step {
+    display: flex; gap: 16px; align-items: flex-start;
+    padding: 18px 0; border-top: 1px solid var(--edge);
+  }
+  .step:first-of-type { border-top: 0; }
+  .step .num {
+    flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1em; font-family: "Georgia", serif;
+  }
+  .step .body { flex: 1 1 auto; }
+  .step .body h3 { margin: 4px 0 4px; font-size: 1.1em; }
+  .step .body p { margin: 0 0 6px; }
+  .callout {
+    background: #fff8e1; border-left: 4px solid var(--golden);
+    padding: 14px 16px; border-radius: 4px; margin: 16px 0;
+  }
+  .callout strong { color: #8b6500; }
+  .callout.info { background: #eafaf0; border-left-color: var(--wa); }
+  .callout.info strong { color: #0f7a3d; }
+  .callout.warn { background: #fdecec; border-left-color: #c0392b; }
+  .callout.warn strong { color: #a3271c; }
+  code {
+    background: #f3efe6; padding: 2px 6px; border-radius: 3px;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 0.9em;
+  }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  .pill {
+    display: inline-block; background: var(--accent); color: #fff;
+    padding: 1px 9px; border-radius: 999px; font-size: 0.85em; font-weight: 600;
+  }
+  footer { text-align: center; color: var(--muted); font-size: 0.9em; padding: 26px; }
+  a { color: var(--accent-dark); }
+  @media print {
+    body { background: #fff; }
+    section { box-shadow: none; border-color: #ddd; page-break-inside: avoid; }
+    nav.back { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <p class="kicker">Classic Jerusalem Realty</p>
+  <h1>Setting up your WhatsApp chatbot</h1>
+  <p>What to do the day your new business phone number arrives.</p>
+</header>
+
+<main>
+
+<nav class="back" style="margin-bottom:18px;">
+  <a href="index.html">&larr; Back to the full admin guide</a>
+</nav>
+
+<section>
+  <h2>What the chatbot does</h2>
+  <p class="lede">
+    When someone messages your business WhatsApp number, the chatbot answers
+    instantly — even at 2am. If they're looking for an apartment, it replies
+    with a few matching listings from your database. If they ask something only
+    you can answer, it politely says you'll get back to them and flags the chat
+    for you.
+  </p>
+  <ul>
+    <li><strong>It qualifies cold leads for you</strong> so nobody waits hours
+    for a first reply.</li>
+    <li><strong>It never pretends to be you on the hard stuff</strong> — pricing
+    talks, viewings, neighborhood questions all come straight to you.</li>
+    <li><strong>You stay in control</strong> — turn it on or off any time, take
+    over any conversation, and read a summary of every chat each morning.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Before you start</h2>
+  <ul>
+    <li>Your <strong>new business phone number</strong>, with WhatsApp installed
+    and activated on it. This is the number leads will message.</li>
+    <li>Keep that phone <strong>charged and connected to the internet</strong> —
+    the chatbot works through your WhatsApp on that phone, the same way "WhatsApp
+    Web" on a computer does.</li>
+    <li>Your admin login (the usual email + PIN).</li>
+  </ul>
+  <div class="callout info">
+    <strong>Good news:</strong> there's nothing to install and no Facebook/Meta
+    business application to fill out. It's a normal WhatsApp account, linked to
+    the system once.
+  </div>
+</section>
+
+<section>
+  <h2>Setup — do this once</h2>
+
+  <div class="step">
+    <div class="num">1</div>
+    <div class="body">
+      <h3>Set up WhatsApp on the new number</h3>
+      <p>Put the new SIM in the phone (or activate the eSIM), install WhatsApp,
+      and register it with the new number. Add your business name and a logo as
+      the profile so leads know it's you.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">2</div>
+    <div class="body">
+      <h3>Open the Settings page in the admin</h3>
+      <p>On your computer, sign in to the admin and open the
+      <span class="pill">Settings</span> page. You'll see a WhatsApp section with
+      a <strong>QR code</strong> (a square barcode), just like WhatsApp Web.</p>
+      <img src="screenshots/settings-full.png" alt="The admin Settings page with the WhatsApp pairing QR code">
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">3</div>
+    <div class="body">
+      <h3>Scan the QR code with the new phone</h3>
+      <p>On the <strong>new business phone</strong>, open WhatsApp and go to:</p>
+      <p><strong>Settings &rarr; Linked Devices &rarr; Link a Device.</strong></p>
+      <p>Point the phone's camera at the QR code on your computer screen. In a
+      few seconds it links up.</p>
+      <div class="callout">
+        <strong>If the code expires before you scan it:</strong> just refresh the
+        Settings page — a fresh code appears every minute or so.
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">4</div>
+    <div class="body">
+      <h3>Check that it connected</h3>
+      <p>Open the <span class="pill">System</span> page. The WhatsApp card should
+      turn <strong>green</strong>. Green means the system is linked to your
+      WhatsApp and ready.</p>
+      <img src="screenshots/system.png" alt="The System health page, WhatsApp card green">
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">5</div>
+    <div class="body">
+      <h3>Turn the chatbot on</h3>
+      <p>Open the <span class="pill">Chatbot</span> page and flip the big switch
+      at the top to <strong>On</strong>. The bot starts off by default, so until
+      you flip this switch it stays silent.</p>
+      <img src="screenshots/chatbot.png" alt="The Chatbot page with the on/off switch">
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="num">6</div>
+    <div class="body">
+      <h3>Set your greeting (optional)</h3>
+      <p>On the same page you can edit the first message the bot sends to a new
+      lead, in Hebrew and English. Keep it short and warm — for example,
+      "Hi! Thanks for reaching out to Classic Jerusalem Realty. What are you
+      looking for?" If you skip this, a sensible default is used.</p>
+    </div>
+  </div>
+
+  <p style="margin-top:18px;"><strong>That's the whole setup.</strong> From now
+  on the bot answers your leads automatically.</p>
+</section>
+
+<section>
+  <h2>Using it day to day</h2>
+  <p class="lede">You mostly just let it run. Here's what happens and where you step in.</p>
+
+  <h3>When a lead asks for an apartment</h3>
+  <p>The bot reads what they want and replies with up to three matching listings
+  — name, price, and a link — straight away. You don't have to do anything.</p>
+
+  <h3>When a lead asks something only you can answer</h3>
+  <p>Questions about price negotiation, viewings, what a neighborhood is like,
+  pets, parking, contracts — the bot does <em>not</em> guess. It sends a polite
+  "Shmuel will get back to you shortly" and <strong>flags the conversation</strong>
+  for you. It then stays quiet in that chat so it never talks over you.</p>
+
+  <h3>Taking over a conversation</h3>
+  <img src="screenshots/chatbot-detail.png" alt="A flagged conversation on the Chatbot page">
+  <ol>
+    <li>Flagged chats appear on the <span class="pill">Chatbot</span> page. Open
+    one to read the whole conversation.</li>
+    <li>Reply to the lead yourself (from your business WhatsApp, as normal).</li>
+    <li>When you're done and happy for the bot to handle their next apartment
+    search, click <strong>Release to bot</strong>. If you'd rather keep handling
+    them personally, just leave it — the bot stays out of that chat.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Turning it off (Shabbat, holidays, vacation)</h2>
+  <p>Go to the <span class="pill">Chatbot</span> page and flip the switch to
+  <strong>Off</strong>. The bot stops replying immediately. Flip it back on when
+  you're ready. Leads can still message you the whole time — you'll just answer
+  them yourself, or the bot will catch up when you switch it back on.</p>
+</section>
+
+<section>
+  <h2>Your morning summary email</h2>
+  <p>Each morning around 8am you get one email recapping yesterday's chats: a
+  short summary of each conversation, anything the lead asked you to follow up
+  on, and any prices or dates they mentioned. It's the fastest way to see what
+  needs your attention before you start the day.</p>
+</section>
+
+<section>
+  <h2>If something doesn't work</h2>
+  <ul>
+    <li><strong>The QR code keeps expiring.</strong> Normal — refresh the
+    Settings page and scan the new one quickly.</li>
+    <li><strong>The WhatsApp card on the System page is red.</strong> The link
+    dropped, almost always because the business phone went offline. Make sure
+    that phone is on, charged, and connected to wifi or data. If it stays red,
+    re-scan the QR code from the Settings page.</li>
+    <li><strong>The bot isn't replying to anyone.</strong> Check two things: the
+    switch on the Chatbot page is <strong>On</strong>, and the WhatsApp card on
+    the System page is <strong>green</strong>. Both must be true.</li>
+    <li><strong>The bot replied to something it shouldn't have.</strong> Open the
+    chat on the Chatbot page, take it over, and reply yourself. If it keeps
+    happening, let me know and I'll adjust how it decides what to answer.</li>
+  </ul>
+  <div class="callout warn">
+    <strong>The one rule to remember:</strong> keep the business phone on and
+    online. The chatbot rides on that phone's WhatsApp — if the phone is off, the
+    bot can't see or answer messages. Plugging it into a charger in a fixed spot
+    (like a charger by your desk) is the easiest way to keep it reliable.
+  </div>
+</section>
+
+</main>
+
+<footer>
+  Classic Jerusalem Realty — WhatsApp chatbot guide ·
+  Questions? <a href="mailto:mattstermh@hotmail.com">mattstermh@hotmail.com</a>
+</footer>
+
+</body>
+</html>
