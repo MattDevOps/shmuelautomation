@@ -209,13 +209,22 @@ async def _copy_photos(
                         or mimetypes.guess_type(ph.file_name)[0]
                         or "image/jpeg"
                     )
-                    try:
-                        f = await storage.upload_file(
-                            refresh_token, folder.id, ph.file_name, content, mime
-                        )
-                    except CloudStorageError as exc:
-                        print(f"  wp#{p.wp_id}: upload failed {ph.file_name}: {exc}")
-                        failed += 1
+                    # Drive uploads occasionally hit a transient ReadTimeout on a
+                    # long batch; one retry keeps a single blip from aborting the run.
+                    f = None
+                    for attempt in (1, 2):
+                        try:
+                            f = await storage.upload_file(
+                                refresh_token, folder.id, ph.file_name, content, mime
+                            )
+                            break
+                        except (CloudStorageError, httpx.HTTPError) as exc:
+                            if attempt == 2:
+                                print(f"  wp#{p.wp_id}: upload failed {ph.file_name}: {exc}")
+                                failed += 1
+                            else:
+                                await asyncio.sleep(2)
+                    if f is None:
                         continue
                     session.add(
                         CloudPhoto(
