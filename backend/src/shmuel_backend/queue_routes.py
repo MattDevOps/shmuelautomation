@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from shmuel_backend.auto_poster import dispatch_slot
 from shmuel_backend.collage_service import render_property_collage
 from shmuel_backend.compose import (
     compose_post,
@@ -30,6 +31,7 @@ from shmuel_backend.schedule_config import (
 )
 from shmuel_backend.scheduler import next_post_slot
 from shmuel_backend.schemas import (
+    DispatchResultRead,
     PostCompose,
     PostSlotRead,
     PostSlotWithProperty,
@@ -156,6 +158,40 @@ async def mark_posted(slot_id: uuid.UUID, session: SessionDep) -> PostSlot:
     await session.commit()
     await session.refresh(slot)
     return slot
+
+
+@router.post("/{slot_id}/dispatch", response_model=DispatchResultRead)
+async def dispatch_now(slot_id: uuid.UUID, session: SessionDep) -> DispatchResultRead:
+    """Post this slot to WhatsApp right now via the daemon (manual 'post now').
+
+    Mirrors what the scheduler tick does for a due slot: renders the collage,
+    composes the caption, and sends to every matching active group. On success
+    the slot flips to POSTED and the property's next slot is rolled, exactly
+    like mark_posted. When the daemon is unconfigured/unreachable the slot
+    stays PENDING and the result explains why (so the UI can say so).
+    """
+    slot = await session.get(PostSlot, slot_id)
+    if slot is None:
+        raise HTTPException(status_code=404, detail="slot not found")
+    if slot.status != PostSlotStatus.PENDING:
+        raise HTTPException(
+            status_code=409, detail=f"slot is already {slot.status.value}"
+        )
+    await session.refresh(slot, attribute_names=["property"])
+    result = await dispatch_slot(session, slot)
+    # dispatch_slot commits the POSTED flip itself; roll the next slot so the
+    # queue keeps flowing, same as the manual mark_posted path.
+    if slot.status == PostSlotStatus.POSTED:
+        await enqueue_property(session, slot.property_id, after=slot.scheduled_for)
+        await session.commit()
+    return DispatchResultRead(
+        slot_id=slot.id,
+        status=slot.status,
+        attempted=result.attempted,
+        succeeded=result.succeeded,
+        skipped_reason=result.skipped_reason,
+        group_failures=result.group_failures,
+    )
 
 
 @router.patch("/{slot_id}/skip", response_model=PostSlotRead)

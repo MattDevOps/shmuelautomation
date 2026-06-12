@@ -1,12 +1,26 @@
 import { useEffect, useState } from 'react'
 import {
   cancelSlot,
+  dispatchNow,
   listQueue,
   markPosted,
   skipSlot,
 } from '../api/queue'
-import type { PostSlotWithProperty } from '../api/types'
+import type { DispatchResult, PostSlotWithProperty } from '../api/types'
 import ShareModal from '../components/ShareModal'
+
+function describeDispatch(slot: PostSlotWithProperty, r: DispatchResult): string {
+  const where = slot.property_neighborhood ?? 'property'
+  if (r.skipped_reason === 'whatsapp_daemon_unconfigured')
+    return `No WhatsApp number is connected yet, so nothing was sent (${where}). Pair a number first.`
+  if (r.skipped_reason === 'no_matching_groups')
+    return `No active WhatsApp group matches this ${slot.property_type} listing (${where}).`
+  if (r.succeeded > 0)
+    return `Posted ${where} to ${r.succeeded} group${r.succeeded === 1 ? '' : 's'}.`
+  if (r.group_failures.length > 0)
+    return `Could not send ${where}: ${r.group_failures.map((f) => f.group).join(', ')}.`
+  return `Nothing was sent for ${where}.`
+}
 
 function formatScheduled(iso: string): {
   absolute: string
@@ -54,6 +68,8 @@ export default function QueuePage() {
 
   const [reloadTick, setReloadTick] = useState(0)
   const reload = (): void => setReloadTick((t) => t + 1)
+  const [postingId, setPostingId] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -94,6 +110,26 @@ export default function QueuePage() {
   async function handleMarkPosted(slot: PostSlotWithProperty): Promise<void> {
     await markPosted(slot.id)
     reload()
+  }
+
+  async function handlePostNow(slot: PostSlotWithProperty): Promise<void> {
+    if (
+      !confirm(
+        `Post ${slot.property_neighborhood ?? 'this property'} to WhatsApp now, automatically?`,
+      )
+    )
+      return
+    setPostingId(slot.id)
+    setNotice(null)
+    try {
+      const result = await dispatchNow(slot.id)
+      setNotice(describeDispatch(slot, result))
+    } catch (e) {
+      setNotice(`Post now failed: ${(e as Error).message}`)
+    } finally {
+      setPostingId(null)
+      reload()
+    }
   }
 
   const dueRows = rows?.filter((r) => formatScheduled(r.scheduled_for).isOverdue) ?? []
@@ -143,6 +179,12 @@ export default function QueuePage() {
         </p>
       )}
 
+      {notice && (
+        <p role="status" className="callout" style={{ padding: 'var(--space-md)' }}>
+          {notice}
+        </p>
+      )}
+
       {rows === null ? (
         <div className="callout">
           <p className="callout-display">Loading…</p>
@@ -162,6 +204,8 @@ export default function QueuePage() {
               <QueueList
                 rows={dueRows}
                 onShare={setSharing}
+                onPostNow={(s) => void handlePostNow(s)}
+                postingId={postingId}
                 onSkip={(s) => void handleSkip(s)}
                 onCancel={(s) => void handleCancel(s)}
               />
@@ -176,6 +220,8 @@ export default function QueuePage() {
               <QueueList
                 rows={upcomingRows}
                 onShare={setSharing}
+                onPostNow={(s) => void handlePostNow(s)}
+                postingId={postingId}
                 onSkip={(s) => void handleSkip(s)}
                 onCancel={(s) => void handleCancel(s)}
               />
@@ -203,11 +249,20 @@ export default function QueuePage() {
 interface ListProps {
   rows: PostSlotWithProperty[]
   onShare: (slot: PostSlotWithProperty) => void
+  onPostNow: (slot: PostSlotWithProperty) => void
+  postingId: string | null
   onSkip: (slot: PostSlotWithProperty) => void
   onCancel: (slot: PostSlotWithProperty) => void
 }
 
-function QueueList({ rows, onShare, onSkip, onCancel }: ListProps): React.ReactElement {
+function QueueList({
+  rows,
+  onShare,
+  onPostNow,
+  postingId,
+  onSkip,
+  onCancel,
+}: ListProps): React.ReactElement {
   return (
     <div className="table-scroll"><table className="properties-table">
       <thead>
@@ -245,6 +300,14 @@ function QueueList({ rows, onShare, onSkip, onCancel }: ListProps): React.ReactE
                   aria-label={`Compose and share ${slot.property_neighborhood ?? slot.id}`}
                 >
                   Compose &amp; share
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onPostNow(slot)}
+                  disabled={postingId === slot.id}
+                  aria-label={`Post ${slot.property_neighborhood ?? slot.id} to WhatsApp now`}
+                >
+                  {postingId === slot.id ? 'Posting…' : 'Post now'}
                 </button>
                 <button type="button" onClick={() => onSkip(slot)}>
                   Skip
