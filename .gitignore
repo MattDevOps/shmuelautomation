@@ -57,3 +57,6 @@ npm-debug.log*
 # fly.io
 .fly/
 .gstack/
+
+# classic-jerusalem-frontend is its own repo (deployed by Vercel); not tracked here
+classic-jerusalem-frontend/
