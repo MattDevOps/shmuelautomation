@@ -23,12 +23,18 @@ from shmuel_backend.compose import (
 )
 from shmuel_backend.db import get_session
 from shmuel_backend.enums import PostSlotStatus
-from shmuel_backend.models import CloudPhoto, PostSlot, Property
+from shmuel_backend.models import CloudPhoto, PostSlot, Property, ScheduleConfig
+from shmuel_backend.schedule_config import (
+    get_or_create_schedule_config,
+    policy_from_config,
+)
 from shmuel_backend.scheduler import next_post_slot
 from shmuel_backend.schemas import (
     PostCompose,
     PostSlotRead,
     PostSlotWithProperty,
+    ScheduleConfigRead,
+    ScheduleConfigUpdate,
 )
 
 router = APIRouter(prefix="/post-queue", tags=["queue"])
@@ -68,7 +74,8 @@ async def enqueue_property(
     floor = after or datetime.now(UTC)
     if floor.tzinfo is None:
         floor = floor.replace(tzinfo=UTC)
-    when = next_post_slot(floor, capacity)
+    cfg = await get_or_create_schedule_config(session)
+    when = next_post_slot(floor, capacity, policy_from_config(cfg))
     slot = PostSlot(
         property_id=property_id,
         scheduled_for=when.replace(tzinfo=None),  # store naive UTC for SQLite portability
@@ -166,6 +173,23 @@ async def skip_slot(slot_id: uuid.UUID, session: SessionDep) -> PostSlot:
     await session.commit()
     await session.refresh(slot)
     return slot
+
+
+@router.get("/schedule-config", response_model=ScheduleConfigRead)
+async def get_schedule_config(session: SessionDep) -> ScheduleConfig:
+    return await get_or_create_schedule_config(session)
+
+
+@router.put("/schedule-config", response_model=ScheduleConfigRead)
+async def update_schedule_config(
+    payload: ScheduleConfigUpdate, session: SessionDep
+) -> ScheduleConfig:
+    cfg = await get_or_create_schedule_config(session)
+    for field, value in payload.model_dump().items():
+        setattr(cfg, field, value)
+    await session.commit()
+    await session.refresh(cfg)
+    return cfg
 
 
 @router.delete("/{slot_id}", status_code=status.HTTP_204_NO_CONTENT)
