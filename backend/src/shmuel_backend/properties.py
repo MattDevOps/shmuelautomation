@@ -252,21 +252,26 @@ async def list_photo_summaries(session: SessionDep) -> list[PropertyPhotoSummary
     first_q = (
         select(
             CloudPhoto.property_id,
+            CloudPhoto.id,
             CloudPhoto.thumbnail_url,
             CloudPhoto.web_view_url,
         )
         .order_by(CloudPhoto.property_id, CloudPhoto.created_at.desc())
         .distinct(CloudPhoto.property_id)
     )
-    first_thumbs: dict[uuid.UUID, str | None] = {
-        row.property_id: row.thumbnail_url or row.web_view_url
-        for row in (await session.execute(first_q)).all()
+    first_rows = {
+        row.property_id: row for row in (await session.execute(first_q)).all()
     }
     return [
         PropertyPhotoSummary(
             property_id=pid,
             count=counts[pid],
-            first_thumbnail=first_thumbs.get(pid),
+            first_photo_id=(r.id if (r := first_rows.get(pid)) else None),
+            first_thumbnail=(
+                r.thumbnail_url or r.web_view_url
+                if (r := first_rows.get(pid))
+                else None
+            ),
         )
         for pid in counts
     ]
