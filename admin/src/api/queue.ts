@@ -1,5 +1,5 @@
 import { request } from './client'
-import type { PostCompose, PostSlotWithProperty } from './types'
+import type { DispatchResult, PostCompose, PostSlotWithProperty } from './types'
 
 export function listQueue(opts: {
   dueOnly?: boolean
@@ -26,6 +26,12 @@ export function skipSlot(slotId: string): Promise<PostSlotWithProperty> {
 
 export function cancelSlot(slotId: string): Promise<void> {
   return request<void>(`/post-queue/${slotId}`, { method: 'DELETE' })
+}
+
+export function dispatchNow(slotId: string): Promise<DispatchResult> {
+  return request<DispatchResult>(`/post-queue/${slotId}/dispatch`, {
+    method: 'POST',
+  })
 }
 
 export function composePropertyPost(propertyId: string): Promise<PostCompose> {

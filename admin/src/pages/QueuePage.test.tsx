@@ -132,6 +132,55 @@ describe('QueuePage', () => {
     })
   })
 
+  it('Post now dispatches and shows the result notice', async () => {
+    fetchSpy
+      .mockResolvedValueOnce(jsonResponse([makeSlot()])) // initial list
+      .mockResolvedValueOnce(
+        jsonResponse({
+          slot_id: 's1',
+          status: 'posted',
+          attempted: 2,
+          succeeded: 2,
+          skipped_reason: null,
+          group_failures: [],
+        }),
+      ) // dispatch
+      .mockResolvedValueOnce(jsonResponse([])) // refresh
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderPage()
+
+    await screen.findByText('Baka')
+    await userEvent.click(screen.getByRole('button', { name: /post baka to whatsapp now/i }))
+
+    await waitFor(() => {
+      const calls = fetchSpy.mock.calls.map((c) => c[0]) as string[]
+      expect(calls.some((u) => /\/post-queue\/s1\/dispatch$/.test(u))).toBe(true)
+    })
+    expect(await screen.findByRole('status')).toHaveTextContent(/posted baka to 2 groups/i)
+  })
+
+  it('Post now surfaces the "no number connected" case', async () => {
+    fetchSpy
+      .mockResolvedValueOnce(jsonResponse([makeSlot()]))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          slot_id: 's1',
+          status: 'pending',
+          attempted: 0,
+          succeeded: 0,
+          skipped_reason: 'whatsapp_daemon_unconfigured',
+          group_failures: [],
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse([makeSlot()]))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderPage()
+
+    await screen.findByText('Baka')
+    await userEvent.click(screen.getByRole('button', { name: /post baka to whatsapp now/i }))
+    expect(await screen.findByRole('status')).toHaveTextContent(/no whatsapp number is connected/i)
+  })
+
   it('shows an error banner when listQueue fails', async () => {
     fetchSpy.mockResolvedValueOnce(jsonResponse({ detail: 'boom' }, 500))
     renderPage()

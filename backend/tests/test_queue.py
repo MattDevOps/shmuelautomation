@@ -1,12 +1,21 @@
 import uuid
 from datetime import UTC, datetime
 
+import respx
 from fastapi.testclient import TestClient
+from httpx import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shmuel_backend.enums import PostSlotStatus
-from shmuel_backend.models import PostSlot
+from shmuel_backend.config import settings as cfg
+from shmuel_backend.enums import (
+    GroupAudience,
+    GroupPlatform,
+    PostSlotStatus,
+)
+from shmuel_backend.models import Group, PostSlot
+
+DAEMON_URL = "http://daemon.local:8787"
 
 
 def _create(client: TestClient, **overrides: object) -> dict[str, object]:
@@ -211,3 +220,75 @@ def test_collage_404_for_missing_property(client: TestClient) -> None:
         "/properties/00000000-0000-0000-0000-000000000000/collage"
     )
     assert r.status_code == 404
+
+
+# ── POST /post-queue/{slot}/dispatch — manual "post now" via the daemon ──
+
+
+async def _pending_slot(session: AsyncSession, property_id: str) -> PostSlot:
+    slots = await _slots_for(session, property_id)
+    return next(s for s in slots if s.status == PostSlotStatus.PENDING)
+
+
+async def test_dispatch_now_skips_when_daemon_unconfigured(
+    client: TestClient, session: AsyncSession
+) -> None:
+    prop = _create(client)
+    slot = await _pending_slot(session, prop["id"])
+    r = client.post(f"/post-queue/{slot.id}/dispatch")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["skipped_reason"] == "whatsapp_daemon_unconfigured"
+    assert body["status"] == "pending"
+    assert body["attempted"] == 0 and body["succeeded"] == 0
+
+
+def test_dispatch_now_404_for_unknown_slot(client: TestClient) -> None:
+    assert client.post(f"/post-queue/{uuid.uuid4()}/dispatch").status_code == 404
+
+
+async def test_dispatch_now_409_when_not_pending(
+    client: TestClient, session: AsyncSession
+) -> None:
+    prop = _create(client)
+    slot = await _pending_slot(session, prop["id"])
+    client.patch(f"/post-queue/{slot.id}/posted")
+    r = client.post(f"/post-queue/{slot.id}/dispatch")
+    assert r.status_code == 409
+
+
+async def test_dispatch_now_sends_and_rolls_next_slot(
+    client: TestClient, session: AsyncSession, monkeypatch
+) -> None:
+    monkeypatch.setattr(cfg, "whatsapp_daemon_url", DAEMON_URL)
+    monkeypatch.setattr(cfg, "whatsapp_daemon_token", "tok")
+    session.add(
+        Group(
+            name="Rentals",
+            platform=GroupPlatform.WHATSAPP,
+            audience=GroupAudience.BOTH,
+            target_url="111-222@g.us",
+            active=True,
+        )
+    )
+    await session.commit()
+
+    prop = _create(client)  # rent property -> matches BOTH group
+    slot = await _pending_slot(session, prop["id"])
+
+    with respx.mock(assert_all_called=False) as rmock:
+        # No photos/Drive in tests, so the collage is None and it sends text.
+        rmock.post(f"{DAEMON_URL}/send-group").mock(
+            return_value=Response(200, json={"ok": True, "messageId": "X"})
+        )
+        r = client.post(f"/post-queue/{slot.id}/dispatch")
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body["status"] == "posted"
+    assert body["attempted"] == 1 and body["succeeded"] == 1
+
+    session.expire_all()
+    slots = await _slots_for(session, prop["id"])
+    assert sum(1 for s in slots if s.status == PostSlotStatus.POSTED) == 1
+    assert sum(1 for s in slots if s.status == PostSlotStatus.PENDING) == 1

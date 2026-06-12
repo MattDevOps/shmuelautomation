@@ -110,6 +110,15 @@ export interface ScheduleConfig {
   saturday_resume_at: string
 }
 
+export interface DispatchResult {
+  slot_id: string
+  status: PostSlotStatus
+  attempted: number
+  succeeded: number
+  skipped_reason: string | null
+  group_failures: { group: string; error: string }[]
+}
+
 export interface PostCompose {
   text_en: string
   text_he: string

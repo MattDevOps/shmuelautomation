@@ -99,6 +99,18 @@ class PostSlotWithProperty(PostSlotRead):
     property_price: Decimal
 
 
+class DispatchResultRead(BaseModel):
+    """Outcome of a manual 'post now' dispatch, surfaced to the admin so it
+    can show how many groups were reached or why nothing was sent."""
+
+    slot_id: uuid.UUID
+    status: PostSlotStatus
+    attempted: int
+    succeeded: int
+    skipped_reason: str | None = None
+    group_failures: list[dict[str, str]] = Field(default_factory=list)
+
+
 _HHMM = r"^([01]\d|2[0-3]):[0-5]\d$"
 
 
