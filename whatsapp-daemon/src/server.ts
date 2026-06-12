@@ -84,6 +84,28 @@ export function buildServer(daemon: WhatsAppDaemon): express.Application {
     }
   });
 
+  app.post("/send-group-image", async (req, res) => {
+    const { groupId, imageBase64, caption } = req.body ?? {};
+    if (typeof groupId !== "string" || typeof imageBase64 !== "string") {
+      res.status(400).json({ error: "groupId and imageBase64 are required" });
+      return;
+    }
+    try {
+      const messageId = await daemon.sendGroupImage(
+        groupId,
+        imageBase64,
+        typeof caption === "string" ? caption : "",
+      );
+      if (messageId === null) {
+        res.status(503).json({ error: "not_connected" });
+        return;
+      }
+      res.json({ ok: true, messageId });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   app.get("/groups", async (_req, res) => {
     try {
       const groups = await daemon.listGroups();

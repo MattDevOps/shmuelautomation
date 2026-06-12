@@ -16,6 +16,7 @@ dependencies = [
     "cryptography>=44.0",
     "python-multipart>=0.0.18",
     "sentry-sdk[fastapi]>=2.20",
+    "pillow>=11.0",
 ]
 
 [dependency-groups]

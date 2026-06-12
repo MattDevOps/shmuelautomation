@@ -186,6 +186,19 @@ export class WhatsAppDaemon {
     return sent?.key.id ?? null;
   }
 
+  /** Send a single image (base64-encoded) with an optional caption to a group. */
+  async sendGroupImage(
+    groupId: string,
+    imageBase64: string,
+    caption: string,
+  ): Promise<string | null> {
+    if (!this.sock || this.snapshot.state !== "connected") return null;
+    const jid = groupId.includes("@") ? groupId : `${groupId}@g.us`;
+    const buffer = Buffer.from(imageBase64, "base64");
+    const sent = await this.sock.sendMessage(jid, { image: buffer, caption });
+    return sent?.key.id ?? null;
+  }
+
   async listGroups(): Promise<GroupInfo[]> {
     if (!this.sock || this.snapshot.state !== "connected") return [];
     const groups = await this.sock.groupFetchAllParticipating();

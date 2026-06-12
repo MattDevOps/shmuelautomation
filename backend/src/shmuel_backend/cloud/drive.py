@@ -260,6 +260,21 @@ class GoogleDriveStorage(CloudStorage):
         link = r.json().get("thumbnailLink")
         return str(link) if link else None
 
+    async def download_file(self, refresh_token: str, file_id: str) -> bytes:
+        access = await refresh_access_token(refresh_token)
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            r = await client.get(
+                f"{DRIVE_API}/files/{file_id}",
+                headers=_auth_headers(access),
+                params={"alt": "media"},
+            )
+        _raise_if_unauthorized(r)
+        if r.status_code >= 400:
+            raise CloudStorageError(
+                f"drive download failed ({r.status_code}) for {file_id}"
+            )
+        return r.content
+
     async def trash_file(self, refresh_token: str, file_id: str) -> None:
         access = await refresh_access_token(refresh_token)
         async with httpx.AsyncClient(timeout=10) as client:

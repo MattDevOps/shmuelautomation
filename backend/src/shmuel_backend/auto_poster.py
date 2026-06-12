@@ -11,6 +11,7 @@ the scheduler's tick on each due slot.
 """
 from __future__ import annotations
 
+import base64
 import logging
 from dataclasses import dataclass, field
 
@@ -18,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shmuel_backend import whatsapp_client
+from shmuel_backend.collage_service import render_property_collage
 from shmuel_backend.compose import compose_post
 from shmuel_backend.config import settings
 from shmuel_backend.enums import (
@@ -89,16 +91,6 @@ def _build_message(prop: Property, photos: list[CloudPhoto]) -> str:
     return compose_post(prop, lang="he", photos=photos)
 
 
-def _first_photo_url(photos: list[CloudPhoto]) -> str | None:
-    """Pick the lead photo for the WhatsApp media attachment."""
-    for p in photos:
-        if p.thumbnail_url:
-            return p.thumbnail_url
-        if p.web_view_url:
-            return p.web_view_url
-    return None
-
-
 async def dispatch_slot(
     session: AsyncSession,
     slot: PostSlot,
@@ -145,16 +137,20 @@ async def dispatch_slot(
         )
         return result
 
-    # Fetch photos once; reuse the lead photo URL for every group send.
+    # Fetch photos once for the message body.
     photos_rows = await session.execute(
         select(CloudPhoto).where(CloudPhoto.property_id == prop.id).order_by(CloudPhoto.created_at)
     )
     photos = list(photos_rows.scalars().all())
     message = _build_message(prop, photos)
-    # Lead photo URL is captured but not yet sent — the Baileys daemon's
-    # /send-group only accepts text today. Wire media-with-text once the
-    # daemon learns to upload images (next iteration).
-    _ = _first_photo_url(photos)
+
+    # Build the share collage (up to 4 photos + logo) once and reuse it for
+    # every group send. When there are no photos / no Drive connection the
+    # collage is None and we fall back to a text-only post.
+    collage_b64: str | None = None
+    collage_png = await render_property_collage(session, prop.id)
+    if collage_png is not None:
+        collage_b64 = base64.b64encode(collage_png).decode("ascii")
 
     for group in groups:
         result.attempted += 1
@@ -165,10 +161,17 @@ async def dispatch_slot(
         if not to:
             result.group_failures.append({"group": group.name, "error": "missing_target_url"})
             continue
-        sent = await whatsapp_client.send_to_group(
-            group_id=to,
-            message=message,
-        )
+        if collage_b64 is not None:
+            sent = await whatsapp_client.send_image_to_group(
+                group_id=to,
+                image_base64=collage_b64,
+                caption=message,
+            )
+        else:
+            sent = await whatsapp_client.send_to_group(
+                group_id=to,
+                message=message,
+            )
         if sent is None:
             result.group_failures.append({"group": group.name, "error": "daemon_failure"})
             continue

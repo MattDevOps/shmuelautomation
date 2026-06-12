@@ -147,6 +147,48 @@ async def test_dispatch_skips_groups_with_no_target_url(
 
 
 @pytest.mark.asyncio
+async def test_dispatch_sends_collage_image_when_available(
+    session: AsyncSession, with_daemon: None, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When a collage renders, dispatch posts an image+caption, not plain text."""
+    import base64
+    import json
+
+    prop = await _make_property(session, prop_type=PropertyType.RENT)
+    slot = await _make_slot(session, prop)
+    await _make_group(session, platform=GroupPlatform.WHATSAPP,
+                      audience=GroupAudience.BOTH, target_url="55555-55555@g.us")
+    await session.commit()
+
+    fake_png = b"\x89PNG-collage-bytes"
+
+    async def fake_collage(_session: AsyncSession, _pid: object) -> bytes:
+        return fake_png
+
+    monkeypatch.setattr(
+        "shmuel_backend.auto_poster.render_property_collage", fake_collage
+    )
+
+    with respx.mock(assert_all_called=False) as rmock:
+        img_route = rmock.post(f"{DAEMON_URL}/send-group-image").mock(
+            return_value=Response(200, json={"ok": True, "messageId": "IMG"}),
+        )
+        text_route = rmock.post(f"{DAEMON_URL}/send-group").mock(
+            return_value=Response(200, json={"ok": True, "messageId": "TXT"}),
+        )
+        result = await dispatch_slot(session, slot)
+
+    assert result.succeeded == 1
+    assert img_route.call_count == 1
+    assert text_route.call_count == 0
+    body = json.loads(img_route.calls[0].request.content)
+    assert body["groupId"] == "55555-55555@g.us"
+    assert base64.b64decode(body["imageBase64"]) == fake_png
+    assert body["caption"]  # the post text rides along as the caption
+    assert slot.status == PostSlotStatus.POSTED
+
+
+@pytest.mark.asyncio
 async def test_dispatch_marks_posted_only_on_success(
     session: AsyncSession, with_daemon: None,
 ) -> None:

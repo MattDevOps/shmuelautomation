@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from shmuel_backend.collage_service import render_property_collage
 from shmuel_backend.compose import (
     compose_post,
     facebook_share_url,
@@ -205,4 +206,26 @@ async def compose_property_post(
         text_he=text_he,
         whatsapp_share_url=whatsapp_share_url(text_en),
         facebook_share_url=facebook_share_url(prop.yad2_url) if prop.yad2_url else None,
+        has_collage=len(photos) > 0,
+    )
+
+
+@compose_router.get("/{property_id}/collage")
+async def property_collage(property_id: uuid.UUID, session: SessionDep) -> Response:
+    """Render the share collage (up to 4 photos + logo) as a PNG.
+
+    This is the same image the WhatsApp auto-poster sends, so the admin can
+    preview exactly what goes out. 404 when there are no photos / no Drive
+    connection, which the UI shows as 'no collage yet'.
+    """
+    prop = await session.get(Property, property_id)
+    if prop is None:
+        raise HTTPException(status_code=404, detail="property not found")
+    png = await render_property_collage(session, property_id)
+    if png is None:
+        raise HTTPException(status_code=404, detail="no collage available")
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={"cache-control": "private, max-age=120"},
     )

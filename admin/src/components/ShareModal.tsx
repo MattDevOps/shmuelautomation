@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { API_URL } from '../api/client'
 import { listGroups } from '../api/groups'
 import { composePropertyPost } from '../api/queue'
 import { PLATFORM_LABELS } from '../api/types'
@@ -178,6 +179,20 @@ export default function ShareModal({
               value={text}
               rows={8}
             />
+
+            {compose.has_collage && (
+              <figure className="collage-preview">
+                <figcaption className="label-eyebrow">
+                  Photo collage — sent with the post by the WhatsApp bot
+                </figcaption>
+                <img
+                  className="collage-preview-img"
+                  src={`${API_URL}/properties/${propertyId}/collage`}
+                  alt="Property photo collage with logo"
+                  loading="lazy"
+                />
+              </figure>
+            )}
 
             <div className="modal-actions">
               <button type="button" className="btn" onClick={() => void copy()}>
