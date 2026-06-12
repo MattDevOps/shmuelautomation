@@ -103,6 +103,8 @@ class PostCompose(BaseModel):
     text_he: str
     whatsapp_share_url: str
     facebook_share_url: str | None = None
+    # True when the property has photos, so the UI can offer a collage preview.
+    has_collage: bool = False
 
 
 class PublicPhoto(BaseModel):

@@ -15,6 +15,7 @@ const baseCompose = {
   text_he: 'להשכרה בBaka\nILS 8,500',
   whatsapp_share_url: 'https://wa.me/?text=For%20rent',
   facebook_share_url: 'https://www.facebook.com/sharer/sharer.php?u=https',
+  has_collage: false,
 }
 
 function setupFetch(

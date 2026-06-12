@@ -106,6 +106,7 @@ export interface PostCompose {
   text_he: string
   whatsapp_share_url: string
   facebook_share_url: string | null
+  has_collage: boolean
 }
 
 export const GROUP_PLATFORMS = [

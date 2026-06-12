@@ -86,6 +86,20 @@ async def send_to_group(
     return await _post("/send-group", {"groupId": group_id, "message": message})
 
 
+async def send_image_to_group(
+    *, group_id: str, image_base64: str, caption: str,
+) -> dict[str, Any] | None:
+    """Post a single image with a caption to a WhatsApp group.
+
+    Used by auto_poster to send the property collage + post text together.
+    `image_base64` is the raw PNG/JPEG bytes, base64-encoded.
+    """
+    return await _post(
+        "/send-group-image",
+        {"groupId": group_id, "imageBase64": image_base64, "caption": caption},
+    )
+
+
 async def list_groups() -> list[dict[str, Any]] | None:
     """List groups the paired number is in. Used by admin to pick groups
     for the queue config UI without forcing Shmuel to paste raw ids.

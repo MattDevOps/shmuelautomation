@@ -192,3 +192,22 @@ def test_compose_404_for_missing_property(client: TestClient) -> None:
         "/properties/00000000-0000-0000-0000-000000000000/compose"
     )
     assert r.status_code == 404
+
+
+def test_compose_has_collage_false_without_photos(client: TestClient) -> None:
+    prop = _create(client, type="sale", price="3200000", neighborhood="Baka")
+    body = client.get(f"/properties/{prop['id']}/compose").json()
+    assert body["has_collage"] is False
+
+
+def test_collage_404_when_no_photos(client: TestClient) -> None:
+    prop = _create(client, type="rent", price="8000", neighborhood="Talbiya")
+    r = client.get(f"/properties/{prop['id']}/collage")
+    assert r.status_code == 404
+
+
+def test_collage_404_for_missing_property(client: TestClient) -> None:
+    r = client.get(
+        "/properties/00000000-0000-0000-0000-000000000000/collage"
+    )
+    assert r.status_code == 404
