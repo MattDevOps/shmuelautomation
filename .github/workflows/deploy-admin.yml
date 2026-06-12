@@ -1,0 +1,67 @@
+name: Deploy admin (Cloudflare Pages)
+
+# The admin SPA used to rely on Cloudflare Pages' built-in Git integration,
+# which silently stopped deploying (the live bundle fell ~a month behind main).
+# This workflow makes admin deploys explicit and reliable, matching the backend
+# Cloud Run pipeline: every push to main rebuilds and ships the admin.
+#
+# Required repo config (Settings -> Secrets and variables -> Actions):
+#   Secrets:
+#     CLOUDFLARE_API_TOKEN   - token with "Cloudflare Pages: Edit" permission
+#     CLOUDFLARE_ACCOUNT_ID  - the Cloudflare account id
+#     VITE_API_KEY           - API key baked into the bundle (same one the
+#                              Worker checks); confidentiality comes from the
+#                              Cloudflare Access gate, not the bundle.
+#   Variables:
+#     CLOUDFLARE_PAGES_PROJECT - the Pages project name (e.g. classic-jerusalem-admin)
+#     VITE_API_URL             - https://api.classicjerusalem.com
+#
+# Until ADMIN_DEPLOY_ENABLED is set to 'true', the job is a no-op so adding the
+# workflow can't break CI before the secrets exist.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'admin/**'
+      - '.github/workflows/deploy-admin.yml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-admin
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ vars.ADMIN_DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+
+      - name: Install
+        working-directory: admin
+        run: npm ci
+
+      - name: Build
+        working-directory: admin
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_API_KEY: ${{ secrets.VITE_API_KEY }}
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+        run: npm run build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: >-
+            pages deploy admin/dist
+            --project-name=${{ vars.CLOUDFLARE_PAGES_PROJECT }}
+            --branch=main
