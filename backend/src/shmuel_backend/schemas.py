@@ -317,6 +317,11 @@ class CloudPhotoRead(BaseModel):
 class PropertyPhotoSummary(BaseModel):
     property_id: uuid.UUID
     count: int
+    # ID of the most-recent photo, used by the list page to build a
+    # fresh-thumbnail URL (/properties/{pid}/photos/{first_photo_id}/thumbnail).
+    first_photo_id: uuid.UUID | None = None
+    # Kept for backward compatibility; the stored Drive thumbnailLink expires
+    # after hours and can't be hotlinked, so the UI no longer renders it.
     first_thumbnail: str | None = None
 
 

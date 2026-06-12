@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { API_URL } from '../api/client'
 import {
   EXPORT_URL,
   bulkDeleteProperties,
@@ -51,6 +52,34 @@ function sourceLabel(url: string): string {
 
 function hasActiveFilters(f: PropertyListFilters): boolean {
   return Boolean(f.type || f.status || f.neighborhood || f.q || f.min_price || f.max_price)
+}
+
+// Renders the row thumbnail off the backend redirect endpoint, which resolves
+// a FRESH signed Drive thumbnailLink on every request. The stored thumbnail_url
+// expires after hours and can't be hotlinked cross-origin, so embedding it
+// directly left the cell empty. Falls back to a placeholder tile on error or
+// when Drive hasn't rendered the thumbnail yet.
+function RowThumb({
+  propertyId,
+  photoId,
+}: {
+  propertyId: string
+  photoId: string | null
+}) {
+  const [errored, setErrored] = useState(false)
+  if (!photoId || errored) {
+    return <span className="photo-thumb photo-thumb-placeholder" />
+  }
+  return (
+    <img
+      src={`${API_URL}/properties/${propertyId}/photos/${photoId}/thumbnail`}
+      alt=""
+      className="photo-thumb"
+      referrerPolicy="no-referrer"
+      loading="lazy"
+      onError={() => setErrored(true)}
+    />
+  )
 }
 
 export default function PropertiesPage() {
@@ -423,15 +452,10 @@ export default function PropertiesPage() {
                         onClick={() => setLightboxFor(p)}
                         aria-label={`View ${s.count} photos for ${p.neighborhood ?? p.id}`}
                       >
-                        {s.first_thumbnail ? (
-                          <img
-                            src={s.first_thumbnail}
-                            alt=""
-                            className="photo-thumb"
-                          />
-                        ) : (
-                          <span className="photo-thumb photo-thumb-placeholder" />
-                        )}
+                        <RowThumb
+                          propertyId={p.id}
+                          photoId={s.first_photo_id}
+                        />
                         <span className="photo-count">{s.count}</span>
                       </button>
                     )

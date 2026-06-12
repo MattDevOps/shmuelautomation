@@ -349,6 +349,7 @@ export interface CloudPhoto {
 export interface PropertyPhotoSummary {
   property_id: string
   count: number
+  first_photo_id: string | null
   first_thumbnail: string | null
 }
 
