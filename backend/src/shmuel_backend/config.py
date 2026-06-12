@@ -55,6 +55,13 @@ class Settings(BaseSettings):
     # WP REST base used by the translation sync service to source content.
     wp_rest_base: str = "https://realestateadmin2025.classicjerusalem.com/wp-json/wp/v2"
 
+    # Yad2 import egress proxy. Yad2 is behind ShieldSquare bot protection that
+    # blocks datacenter IPs (Cloud Run). Point this at a residential proxy or a
+    # scraping API (e.g. http://user:pass@host:port) to route the import fetch
+    # through a trusted IP. Empty = fetch directly (works from residential IPs,
+    # often blocked from cloud hosts).
+    yad2_fetch_proxy: str = ""
+
     # whatsapp-daemon — self-hosted Baileys daemon in `whatsapp-daemon/`.
     # Empty URL = no-op (calls log "would have sent..." and return None).
     # Token is a shared secret; daemon must be configured with the same value.

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import re
 from dataclasses import dataclass, field
@@ -6,16 +7,61 @@ from urllib.parse import urlparse
 import httpx
 from bs4 import BeautifulSoup
 
+from shmuel_backend.config import settings
+
 YAD2_HOST_SUFFIX = "yad2.co.il"
-FETCH_TIMEOUT = 8.0
+FETCH_TIMEOUT = 12.0
+FETCH_ATTEMPTS = 3
+FETCH_BACKOFF_SECONDS = 1.5
+
+# Yad2 sits behind ShieldSquare (Radware) bot protection. From a datacenter IP
+# (e.g. Cloud Run) a normal desktop User-Agent gets served a JS captcha page
+# instead of the listing, so no property data can be parsed. We identify as the
+# Facebook link-preview crawler: ShieldSquare lets Open Graph fetches through so
+# WhatsApp/Facebook unfurls keep working, and OG tags are exactly what we parse.
 USER_AGENT = (
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    "facebookexternalhit/1.1 "
+    "(+http://www.facebook.com/externalhit_uatext.php)"
+)
+
+# Default headers that look like a real link-preview fetch rather than a bare
+# scraper. Helps with UA/header-gated rules on the way to the OG-tagged page.
+FETCH_HEADERS = {
+    "user-agent": USER_AGENT,
+    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "accept-language": "he,en;q=0.8",
+    "cache-control": "no-cache",
+}
+
+# Fingerprints of the ShieldSquare / generic anti-bot challenge page. When the
+# response is one of these we got blocked, not an empty listing — the
+# distinction matters because the two cases need different user guidance.
+_CHALLENGE_MARKERS = (
+    "shieldsquare",
+    "ssjsinternal",
+    "px-captcha",
+    "perimeterx",
+    "validate.perfdrive",
+    "are you a human",
+    "/cdn-cgi/challenge-platform",
 )
 
 
 class Yad2Error(Exception):
     pass
+
+
+class Yad2Blocked(Yad2Error):
+    """Yad2's bot protection served a challenge instead of the listing."""
+
+
+def _looks_like_challenge(html: str) -> bool:
+    head = html[:4000].lower()
+    # An OG-tagged listing is never a challenge page, even if a marker word
+    # happens to appear deeper in analytics scripts.
+    if "og:title" in head:
+        return False
+    return any(marker in head for marker in _CHALLENGE_MARKERS)
 
 
 @dataclass
@@ -45,15 +91,31 @@ def is_yad2_url(url: str) -> bool:
 
 
 async def fetch_yad2_html(url: str) -> str:
+    # Optional egress proxy (residential IP or scraping API). When set it lets
+    # the fetch originate from an IP Yad2's bot protection trusts, which a bare
+    # Cloud Run datacenter IP is not. No-op when blank (default).
+    proxy = settings.yad2_fetch_proxy or None
+    last_challenge: Yad2Blocked | None = None
     async with httpx.AsyncClient(
         timeout=FETCH_TIMEOUT,
         follow_redirects=True,
-        headers={"user-agent": USER_AGENT, "accept-language": "he,en;q=0.8"},
+        headers=FETCH_HEADERS,
+        proxy=proxy,
     ) as client:
-        r = await client.get(url)
-    if r.status_code >= 400:
-        raise Yad2Error(f"yad2 returned status {r.status_code}")
-    return r.text
+        for attempt in range(FETCH_ATTEMPTS):
+            r = await client.get(url)
+            if r.status_code >= 400:
+                raise Yad2Error(f"yad2 returned status {r.status_code}")
+            if _looks_like_challenge(r.text):
+                # Challenges are probabilistic; a retry often gets through.
+                last_challenge = Yad2Blocked(
+                    "yad2 served a bot-protection challenge"
+                )
+                if attempt + 1 < FETCH_ATTEMPTS:
+                    await asyncio.sleep(FETCH_BACKOFF_SECONDS)
+                continue
+            return r.text
+    raise last_challenge or Yad2Blocked("yad2 served a bot-protection challenge")
 
 
 def parse_yad2_html(url: str, html: str) -> Yad2Preview:

@@ -74,6 +74,25 @@ def test_returns_warnings_when_yad2_returns_4xx(client: TestClient) -> None:
 
 
 @respx.mock
+def test_returns_block_warning_when_shieldsquare_challenge(
+    client: TestClient,
+) -> None:
+    url = "https://www.yad2.co.il/realestate/item/challenged"
+    challenge = (
+        "<html><head><title>ShieldSquare Captcha</title>"
+        "<script>window.SSJSInternal = 1;</script></head><body></body></html>"
+    )
+    respx.get(url).respond(text=challenge)
+
+    r = client.post("/properties/import/yad2", json={"url": url})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["title"] is None
+    # Distinct from the "no data" message — tells the user it's a bot block.
+    assert any("blocked" in w.lower() for w in body["warnings"])
+
+
+@respx.mock
 def test_returns_warnings_when_no_data_extracted(client: TestClient) -> None:
     url = "https://www.yad2.co.il/realestate/item/empty"
     respx.get(url).respond(text="<html><body>empty</body></html>")

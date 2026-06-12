@@ -29,6 +29,7 @@ from shmuel_backend.schemas import (
     Yad2ImportRequest,
 )
 from shmuel_backend.yad2 import (
+    Yad2Blocked,
     Yad2Error,
     fetch_yad2_html,
     is_yad2_url,
@@ -107,6 +108,15 @@ async def import_from_yad2(payload: Yad2ImportRequest) -> Yad2ImportPreview:
         raise HTTPException(status_code=400, detail="Not a yad2.co.il URL")
     try:
         html = await fetch_yad2_html(payload.url)
+    except Yad2Blocked:
+        return Yad2ImportPreview(
+            url=payload.url,
+            warnings=[
+                "Yad2 blocked the automated import (bot check) — this is not a "
+                "problem with the listing. Wait a minute and try again, or fill "
+                "in the form manually."
+            ],
+        )
     except (Yad2Error, httpx.HTTPError) as exc:
         return Yad2ImportPreview(
             url=payload.url,
