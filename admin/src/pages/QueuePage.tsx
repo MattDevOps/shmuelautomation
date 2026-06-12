@@ -113,6 +113,30 @@ export default function QueuePage() {
         </div>
       </header>
 
+      <details className="queue-help">
+        <summary>How does the queue work?</summary>
+        <ul>
+          <li>
+            <strong>Adding is automatic.</strong> Every property you save as{' '}
+            <em>Available</em> is scheduled into the next free slot — there&rsquo;s
+            no separate &ldquo;add to queue&rdquo; step. Mark a property{' '}
+            <em>Rented</em> or <em>Sold</em> and it drops out.
+          </li>
+          <li>
+            <strong>When it posts.</strong> Two slots a day (default 8 AM and 8
+            PM), a few properties per slot, never on Shabbat. You can change the
+            times, capacity, and Shabbat window in{' '}
+            <a href="/settings">Settings → Posting schedule</a>.
+          </li>
+          <li>
+            <strong>The cycle.</strong> Tap <em>Compose &amp; share</em>, send to
+            your groups, then <em>Mark slot as posted</em> — the property
+            automatically re-queues for its next turn. <em>Skip</em> pushes it to
+            the next slot; <em>Cancel</em> removes it.
+          </li>
+        </ul>
+      </details>
+
       {error && (
         <p role="alert" className="error">
           Could not load the queue: {error}

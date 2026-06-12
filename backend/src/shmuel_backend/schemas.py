@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from shmuel_backend.enums import (
     BrokerFeeStatus,
@@ -96,6 +97,36 @@ class PostSlotWithProperty(PostSlotRead):
     property_neighborhood: str | None = None
     property_address: str | None = None
     property_price: Decimal
+
+
+_HHMM = r"^([01]\d|2[0-3]):[0-5]\d$"
+
+
+class ScheduleConfigRead(BaseModel):
+    timezone: str
+    morning_slot: str
+    evening_slot: str
+    posts_per_slot: int
+    friday_block_after: str
+    saturday_resume_at: str
+
+
+class ScheduleConfigUpdate(BaseModel):
+    timezone: str = Field(min_length=1, max_length=64)
+    morning_slot: str = Field(pattern=_HHMM)
+    evening_slot: str = Field(pattern=_HHMM)
+    posts_per_slot: int = Field(ge=1, le=50)
+    friday_block_after: str = Field(pattern=_HHMM)
+    saturday_resume_at: str = Field(pattern=_HHMM)
+
+    @field_validator("timezone")
+    @classmethod
+    def _valid_tz(cls, v: str) -> str:
+        try:
+            ZoneInfo(v)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError(f"unknown timezone: {v}") from exc
+        return v
 
 
 class PostCompose(BaseModel):

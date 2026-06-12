@@ -5,8 +5,128 @@ import {
   disconnectCloud,
   getCloudStatus,
 } from '../api/cloud'
-import type { CloudConnectionStatus } from '../api/types'
+import { getScheduleConfig, updateScheduleConfig } from '../api/schedule'
+import type { CloudConnectionStatus, ScheduleConfig } from '../api/types'
 import WhatsappPairingPanel from '../components/WhatsappPairingPanel'
+
+function PostingSchedule() {
+  const [cfg, setCfg] = useState<ScheduleConfig | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    getScheduleConfig()
+      .then((c) => !cancelled && setCfg(c))
+      .catch((e: Error) => !cancelled && setError(e.message))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function set<K extends keyof ScheduleConfig>(
+    key: K,
+    value: ScheduleConfig[K],
+  ): void {
+    setCfg((c) => (c ? { ...c, [key]: value } : c))
+    setSaved(false)
+  }
+
+  async function save(): Promise<void> {
+    if (!cfg) return
+    setSaving(true)
+    setError(null)
+    try {
+      const next = await updateScheduleConfig(cfg)
+      setCfg(next)
+      setSaved(true)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save the schedule.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (error && !cfg) {
+    return (
+      <p role="alert" className="error">
+        {error}
+      </p>
+    )
+  }
+  if (!cfg) return <p className="muted">Loading…</p>
+
+  return (
+    <div className="settings-card">
+      <p className="muted">
+        Available properties post automatically at these times. Up to{' '}
+        <strong>{cfg.posts_per_slot}</strong> per slot, skipping Shabbat.
+      </p>
+      <div className="schedule-grid">
+        <label className="field">
+          <span className="label-text">Morning slot</span>
+          <input
+            type="time"
+            value={cfg.morning_slot}
+            onChange={(e) => set('morning_slot', e.target.value)}
+          />
+        </label>
+        <label className="field">
+          <span className="label-text">Evening slot</span>
+          <input
+            type="time"
+            value={cfg.evening_slot}
+            onChange={(e) => set('evening_slot', e.target.value)}
+          />
+        </label>
+        <label className="field">
+          <span className="label-text">Posts per slot</span>
+          <input
+            type="number"
+            min={1}
+            max={50}
+            value={cfg.posts_per_slot}
+            onChange={(e) =>
+              set('posts_per_slot', Number(e.target.value) || 1)
+            }
+          />
+        </label>
+        <label className="field">
+          <span className="label-text">Shabbat: pause from (Fri)</span>
+          <input
+            type="time"
+            value={cfg.friday_block_after}
+            onChange={(e) => set('friday_block_after', e.target.value)}
+          />
+        </label>
+        <label className="field">
+          <span className="label-text">Shabbat: resume (Sat)</span>
+          <input
+            type="time"
+            value={cfg.saturday_resume_at}
+            onChange={(e) => set('saturday_resume_at', e.target.value)}
+          />
+        </label>
+      </div>
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      <div className="modal-actions">
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => void save()}
+          disabled={saving}
+        >
+          {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save schedule'}
+        </button>
+      </div>
+    </div>
+  )
+}
 
 export default function SettingsPage() {
   const [params, setParams] = useSearchParams()
@@ -145,6 +265,13 @@ export default function SettingsPage() {
         daemon restarts.
       </p>
       <WhatsappPairingPanel />
+
+      <h2>Posting schedule</h2>
+      <p className="muted">
+        When the queue posts each day, how many properties per slot, and the
+        Shabbat pause. Changes apply to newly scheduled posts.
+      </p>
+      <PostingSchedule />
     </section>
   )
 }

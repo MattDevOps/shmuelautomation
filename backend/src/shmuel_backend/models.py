@@ -466,3 +466,26 @@ class ConversationSummary(Base):
             "chat_jid", "period_end", name="uq_conversation_summaries_period"
         ),
     )
+
+
+class ScheduleConfig(Base):
+    """Single-row runtime config for the posting schedule.
+
+    Lives in the DB (not env) so Shmuel can change the daily slot times,
+    per-slot capacity, and the Shabbat window from the admin without a
+    redeploy. `id` is always 'default'. Times are 'HH:MM' strings in the
+    configured timezone.
+    """
+
+    __tablename__ = "schedule_config"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default="default")
+    timezone: Mapped[str] = mapped_column(String(64), default="Asia/Jerusalem")
+    morning_slot: Mapped[str] = mapped_column(String(5), default="08:00")
+    evening_slot: Mapped[str] = mapped_column(String(5), default="20:00")
+    posts_per_slot: Mapped[int] = mapped_column(default=3)
+    friday_block_after: Mapped[str] = mapped_column(String(5), default="13:00")
+    saturday_resume_at: Mapped[str] = mapped_column(String(5), default="21:00")
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )

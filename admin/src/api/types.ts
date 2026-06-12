@@ -101,6 +101,15 @@ export interface PostSlotWithProperty {
   property_price: string
 }
 
+export interface ScheduleConfig {
+  timezone: string
+  morning_slot: string
+  evening_slot: string
+  posts_per_slot: number
+  friday_block_after: string
+  saturday_resume_at: string
+}
+
 export interface PostCompose {
   text_en: string
   text_he: string
