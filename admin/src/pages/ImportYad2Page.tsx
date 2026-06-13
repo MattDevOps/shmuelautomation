@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { createProperty, importFromYad2 } from '../api/properties'
+import { importPhotosFromUrls } from '../api/cloud'
 import {
   EMPTY_PROPERTY,
   type PropertyCreate,
@@ -30,6 +31,10 @@ export default function ImportYad2Page() {
   const [error, setError] = useState<string | null>(null)
   const [preview, setPreview] = useState<Yad2ImportPreview | null>(null)
   const [draft, setDraft] = useState<PropertyCreate | null>(null)
+  const [importPhotos, setImportPhotos] = useState(true)
+  // Set after a property is created but its photos couldn't be imported, so we
+  // can link the user to it instead of navigating away silently.
+  const [createdId, setCreatedId] = useState<string | null>(null)
 
   async function handleFetch(e: FormEvent): Promise<void> {
     e.preventDefault()
@@ -49,8 +54,36 @@ export default function ImportYad2Page() {
   }
 
   async function save(payload: PropertyCreate): Promise<void> {
-    await createProperty(payload)
-    navigate('/')
+    const created = await createProperty(payload)
+    const urls = preview?.image_urls ?? []
+    if (importPhotos && urls.length > 0) {
+      // Pull the Yad2 gallery into Drive. The property already exists, so a
+      // photo failure is never fatal — but don't hide it: if nothing imported
+      // (e.g. Drive disconnected), keep the user here with a clear message and
+      // a link to the property rather than dropping them on an empty gallery.
+      try {
+        const result = await importPhotosFromUrls(created.id, urls)
+        if (result.imported === 0 && result.failed > 0) {
+          setCreatedId(created.id)
+          setError(
+            `Property created, but none of the ${result.failed} photos could be ` +
+              `imported (${result.errors[0] ?? 'unknown error'}). Open the ` +
+              `property to add them manually.`,
+          )
+          return
+        }
+      } catch (err) {
+        setCreatedId(created.id)
+        setError(
+          `Property created, but photo import failed: ` +
+            `${err instanceof Error ? err.message : 'unknown error'}. Open the ` +
+            `property to add photos manually.`,
+        )
+        return
+      }
+    }
+    // Go to the property so the freshly imported photos are visible.
+    navigate(`/${created.id}`)
   }
 
   return (
@@ -59,10 +92,10 @@ export default function ImportYad2Page() {
         <div>
           <h1>Import from Yad2</h1>
           <p className="page-subhead">
-            Paste a Yad2 listing URL — we&rsquo;ll save the link to the
-            property and try to pre-fill fields from the page. Yad2 blocks
-            most automated reads, so usually you&rsquo;ll need to type the
-            details in manually.
+            Paste a Yad2 listing URL — we&rsquo;ll pull the price, size, floor,
+            address and the full photo gallery, then pre-fill the form below.
+            Review, adjust anything, and save. Occasionally Yad2&rsquo;s bot
+            check blocks a read; if that happens, just fill the form in manually.
           </p>
         </div>
       </header>
@@ -93,6 +126,12 @@ export default function ImportYad2Page() {
         </p>
       )}
 
+      {createdId && (
+        <p>
+          <Link to={`/${createdId}`}>Open the property &rarr;</Link>
+        </p>
+      )}
+
       {preview?.warnings.length ? (
         <div role="status" className="warnings">
           <span className="warnings-heading">Some details couldn&rsquo;t be extracted</span>
@@ -106,11 +145,20 @@ export default function ImportYad2Page() {
 
       {preview && preview.image_urls.length > 0 && (
         <section className="yad2-images" aria-labelledby="yad2-photos-heading">
-          <h2 id="yad2-photos-heading">Photos found on the listing</h2>
-          <p className="muted">
-            You&rsquo;ll re-upload these to the property after saving — for now
-            they&rsquo;re just shown for reference.
-          </p>
+          <h2 id="yad2-photos-heading">
+            Photos found on the listing ({preview.image_urls.length})
+          </h2>
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={importPhotos}
+              onChange={(e) => setImportPhotos(e.target.checked)}
+            />
+            <span>
+              Save these photos to the property automatically (requires Google
+              Drive connected in Settings)
+            </span>
+          </label>
           <ul className="photo-grid">
             {preview.image_urls.map((src, i) => (
               <li key={src} className="photo-tile">
