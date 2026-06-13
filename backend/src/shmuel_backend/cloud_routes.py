@@ -9,10 +9,13 @@ across calls and just needs a refresh token, so reuse is safe.
 """
 import contextlib
 import hashlib
+import os
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
+from urllib.parse import urlparse
 
+import httpx
 from fastapi import (
     APIRouter,
     Depends,
@@ -40,11 +43,21 @@ from shmuel_backend.models import (
     OAuthState,
     Property,
 )
-from shmuel_backend.schemas import CloudConnectionStatus, CloudPhotoRead
+from shmuel_backend.schemas import (
+    CloudConnectionStatus,
+    CloudPhotoRead,
+    PhotoUrlImportRequest,
+    PhotoUrlImportResult,
+)
 
 PROVIDER_GOOGLE = "google_drive"
 ROOT_FOLDER_NAME = "Classic Jerusalem Realty"
 OAUTH_STATE_TTL = timedelta(minutes=10)
+# Cap a single downloaded image so a hostile/huge URL can't exhaust memory.
+MAX_REMOTE_IMAGE_BYTES = 15 * 1024 * 1024
+REMOTE_IMAGE_TIMEOUT = 20.0
+# The only host the URL-import endpoint will fetch from (SSRF guard).
+ALLOWED_IMAGE_HOST = "yad2.co.il"
 
 storage = GoogleDriveStorage()
 
@@ -224,25 +237,12 @@ async def upload_photo(
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Empty file.")
-    checksum = hashlib.sha256(content).hexdigest()
 
-    existing = await session.execute(
-        select(CloudPhoto).where(
-            CloudPhoto.property_id == property_id, CloudPhoto.checksum == checksum
-        )
-    )
-    found = existing.scalar_one_or_none()
-    if found is not None:
-        return found
-
-    refresh_token = decrypt(conn.encrypted_refresh_token)
     try:
-        folder = await storage.ensure_subfolder(
-            refresh_token, conn.root_folder_id, _property_folder_name(prop)
-        )
-        uploaded = await storage.upload_file(
-            refresh_token,
-            folder.id,
+        photo, _ = await _store_photo_bytes(
+            session,
+            prop,
+            conn,
             file.filename or "photo.jpg",
             content,
             file.content_type or "application/octet-stream",
@@ -258,8 +258,50 @@ async def upload_photo(
     except CloudStorageError as exc:
         raise HTTPException(status_code=502, detail=f"Drive upload failed: {exc}") from exc
 
+    await session.commit()
+    await session.refresh(photo)
+    return photo
+
+
+async def _store_photo_bytes(
+    session: AsyncSession,
+    prop: Property,
+    conn: CloudConnection,
+    filename: str,
+    content: bytes,
+    content_type: str,
+) -> tuple[CloudPhoto, bool]:
+    """Persist one image to Drive + DB, deduped by checksum.
+
+    Does NOT commit — the caller decides the transaction boundary so a batch
+    import can roll up many photos into one commit. Returns `(photo, created)`;
+    `created` is False when the same bytes were already stored for this property
+    (idempotent). Raises CloudStorageError / CloudUnauthorizedError on Drive
+    failures.
+    """
+    checksum = hashlib.sha256(content).hexdigest()
+    existing = await session.execute(
+        select(CloudPhoto).where(
+            CloudPhoto.property_id == prop.id, CloudPhoto.checksum == checksum
+        )
+    )
+    found = existing.scalar_one_or_none()
+    if found is not None:
+        return found, False
+
+    refresh_token = decrypt(conn.encrypted_refresh_token)
+    folder = await storage.ensure_subfolder(
+        refresh_token, conn.root_folder_id, _property_folder_name(prop)
+    )
+    uploaded = await storage.upload_file(
+        refresh_token,
+        folder.id,
+        filename,
+        content,
+        content_type or "application/octet-stream",
+    )
     photo = CloudPhoto(
-        property_id=property_id,
+        property_id=prop.id,
         provider=PROVIDER_GOOGLE,
         external_id=uploaded.id,
         folder_external_id=folder.id,
@@ -271,9 +313,148 @@ async def upload_photo(
         thumbnail_url=uploaded.thumbnail_url,
     )
     session.add(photo)
-    await session.commit()
-    await session.refresh(photo)
-    return photo
+    return photo, True
+
+
+def _filename_from_url(url: str, index: int) -> str:
+    """Derive a sensible filename from an image URL, defaulting to a jpg."""
+    name = os.path.basename(urlparse(url).path)
+    if name and "." in name:
+        return name
+    return f"photo-{index + 1}.jpg"
+
+
+def _validate_remote_image_url(url: str) -> None:
+    """Reject anything but an https Yad2-CDN URL.
+
+    This endpoint fetches its argument server-side, so an unrestricted URL is an
+    SSRF hole — on Cloud Run it could reach the metadata server or internal
+    services. The only legitimate caller imports the Yad2 gallery, whose images
+    live under yad2.co.il, so we hard-limit to that host over https.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise ValueError("only https image URLs are allowed")
+    host = (parsed.hostname or "").lower()
+    if host != ALLOWED_IMAGE_HOST and not host.endswith("." + ALLOWED_IMAGE_HOST):
+        raise ValueError(f"host not allowed ({host or 'none'})")
+
+
+async def _download_remote_image(
+    http: httpx.AsyncClient, url: str
+) -> tuple[bytes, str]:
+    """Stream-download an image, aborting past the size cap instead of buffering.
+
+    Reads in chunks so an oversized (or unbounded) body is rejected mid-flight
+    rather than fully materialized in memory first.
+    """
+    async with http.stream("GET", url) as resp:
+        resp.raise_for_status()
+        declared = resp.headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > MAX_REMOTE_IMAGE_BYTES:
+            raise ValueError("image exceeds size limit")
+        content_type = (
+            resp.headers.get("content-type", "").split(";")[0].strip()
+            or "image/jpeg"
+        )
+        if not content_type.startswith("image/"):
+            raise ValueError(f"not an image ({content_type or 'unknown'})")
+        buf = bytearray()
+        async for chunk in resp.aiter_bytes():
+            buf.extend(chunk)
+            if len(buf) > MAX_REMOTE_IMAGE_BYTES:
+                raise ValueError("image exceeds size limit")
+    if not buf:
+        raise ValueError("empty response")
+    return bytes(buf), content_type
+
+
+@photos_router.post(
+    "/{property_id}/photos/import-urls",
+    response_model=PhotoUrlImportResult,
+    status_code=status.HTTP_201_CREATED,
+)
+async def import_photos_from_urls(
+    property_id: uuid.UUID,
+    payload: PhotoUrlImportRequest,
+    session: SessionDep,
+) -> PhotoUrlImportResult:
+    """Download remote images (e.g. a Yad2 gallery) and store them in Drive.
+
+    Used by the Yad2 import flow: the listing's photo URLs live on
+    img.yad2.co.il, which the browser can't fetch cross-origin, so the download
+    happens here. Best-effort per image — one bad URL doesn't fail the batch.
+    Deduped by checksum, so re-running is a no-op for already-stored photos.
+    """
+    prop = await session.get(Property, property_id)
+    if prop is None:
+        raise HTTPException(status_code=404, detail="property not found")
+
+    conn = await _require_connection(session)
+    if conn.root_folder_id is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Cloud connection has no root folder; reconnect Drive.",
+        )
+
+    imported = 0
+    skipped = 0
+    # Snapshot each stored photo as a DTO in-loop: a later image's rollback
+    # expires the ORM objects, so we can't safely read them after the loop.
+    photos: list[CloudPhotoRead] = []
+    errors: list[str] = []
+
+    # follow_redirects=False: a redirect is a classic allowlist-bypass vector
+    # (a yad2 URL 302-ing to an internal host), and the CDN serves images
+    # directly, so we never need to follow one.
+    async with httpx.AsyncClient(
+        timeout=REMOTE_IMAGE_TIMEOUT, follow_redirects=False
+    ) as http:
+        for index, url in enumerate(payload.image_urls):
+            try:
+                _validate_remote_image_url(url)
+                content, content_type = await _download_remote_image(http, url)
+                photo, created = await _store_photo_bytes(
+                    session,
+                    prop,
+                    conn,
+                    _filename_from_url(url, index),
+                    content,
+                    content_type,
+                )
+                if created:
+                    # Commit per image so a later failure can't roll back (and
+                    # orphan the Drive files of) photos already stored.
+                    await session.commit()
+                    await session.refresh(photo)
+                    photos.append(
+                        CloudPhotoRead.model_validate(photo, from_attributes=True)
+                    )
+                    imported += 1
+                else:
+                    skipped += 1
+            except CloudUnauthorizedError as exc:
+                # Auth is broken for the whole batch — stop and surface it.
+                # Already-committed photos survive; only this image is dropped.
+                await session.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_412_PRECONDITION_FAILED,
+                    detail=(
+                        "Drive credentials are no longer valid. Reconnect Google "
+                        f"Drive in Settings ({exc})."
+                    ),
+                ) from exc
+            except (httpx.HTTPError, CloudStorageError, ValueError) as exc:
+                await session.rollback()
+                errors.append(f"{url}: {exc}")
+
+    return PhotoUrlImportResult(
+        imported=imported,
+        skipped=skipped,
+        failed=len(errors),
+        photos=photos,
+        errors=errors,
+    )
 
 
 @photos_router.get("/{property_id}/photos/{photo_id}/thumbnail")

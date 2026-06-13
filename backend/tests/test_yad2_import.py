@@ -5,6 +5,35 @@ import respx
 from fastapi.testclient import TestClient
 
 FIXTURE = Path(__file__).parent / "fixtures" / "yad2_listing.html"
+NEXT_DATA_FIXTURE = Path(__file__).parent / "fixtures" / "yad2_next_data.html"
+
+
+@respx.mock
+def test_imports_full_listing_from_next_data(client: TestClient) -> None:
+    """The real Yad2 page ships structured data in __NEXT_DATA__, not JSON-LD —
+    price, sqm, floor, address and the whole gallery come from there."""
+    url = "https://www.yad2.co.il/realestate/item/jerusalem-area/37holb57"
+    respx.get(url).respond(text=NEXT_DATA_FIXTURE.read_text(encoding="utf-8"))
+
+    r = client.post("/properties/import/yad2", json={"url": url})
+    assert r.status_code == 200
+    body = r.json()
+
+    assert body["price"] == "3050000"
+    assert body["size_sqm"] == 85
+    assert body["rooms"] == "3"
+    assert body["floor"] == 4
+    assert body["address"] == "השופט חיים כהן 8"
+    assert body["neighborhood"] == "ארנונה"
+    # og:title's trailing site tagline ("| אלפי מודעות...") is stripped.
+    assert body["title"] == "דירה, השופט חיים כהן 8, ארנונה, ירושלים"
+    # Full gallery from NEXT_DATA, not the single og:image.
+    assert body["image_urls"] == [
+        "https://img.yad2.co.il/Pic/photo1.jpeg",
+        "https://img.yad2.co.il/Pic/photo2.jpeg",
+        "https://img.yad2.co.il/Pic/photo3.jpeg",
+    ]
+    assert body["warnings"] == []
 
 
 @respx.mock
