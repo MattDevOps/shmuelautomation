@@ -278,6 +278,131 @@ def test_delete_trashes_drive_file_then_removes_record(
     assert after == []
 
 
+@respx.mock
+def test_import_urls_downloads_and_stores_gallery(client: TestClient) -> None:
+    _connect_drive(client, respx.mock)
+    pid = _create_property(client)
+
+    # Two remote gallery images served from the Yad2 CDN.
+    respx.mock.get("https://img.yad2.co.il/Pic/photo1.jpeg").respond(
+        content=b"\xff\xd8\xffphoto-one", headers={"content-type": "image/jpeg"}
+    )
+    respx.mock.get("https://img.yad2.co.il/Pic/photo2.jpeg").respond(
+        content=b"\xff\xd8\xffphoto-two", headers={"content-type": "image/jpeg"}
+    )
+    # First image: subfolder lookup empty → create it. Second image: lookup
+    # now finds the folder created for the first, so no second create.
+    respx.mock.get("https://www.googleapis.com/drive/v3/files").mock(
+        side_effect=[
+            __resp({"files": []}),
+            __resp({"files": [{
+                "id": "subfolder-1", "name": "Baka – aaaaaaaa",
+                "mimeType": "application/vnd.google-apps.folder",
+            }]}),
+        ]
+    )
+    _stub_subfolder_create(respx.mock)
+    respx.mock.post(
+        "https://www.googleapis.com/upload/drive/v3/files"
+    ).mock(
+        side_effect=[
+            __resp({
+                "id": "file-1", "name": "photo1.jpeg", "mimeType": "image/jpeg",
+                "size": "10", "webViewLink": "https://drive.google.com/file/d/file-1/view",
+                "thumbnailLink": "https://lh3.googleusercontent.com/t/file-1",
+            }),
+            __resp({
+                "id": "file-2", "name": "photo2.jpeg", "mimeType": "image/jpeg",
+                "size": "10", "webViewLink": "https://drive.google.com/file/d/file-2/view",
+                "thumbnailLink": "https://lh3.googleusercontent.com/t/file-2",
+            }),
+        ]
+    )
+
+    r = client.post(
+        f"/properties/{pid}/photos/import-urls",
+        json={"image_urls": [
+            "https://img.yad2.co.il/Pic/photo1.jpeg",
+            "https://img.yad2.co.il/Pic/photo2.jpeg",
+        ]},
+    )
+    assert r.status_code == 201
+    body = r.json()
+    assert body["imported"] == 2
+    assert body["skipped"] == 0
+    assert body["failed"] == 0
+    assert len(body["photos"]) == 2
+    assert {p["file_name"] for p in body["photos"]} == {"photo1.jpeg", "photo2.jpeg"}
+
+    listed = client.get(f"/properties/{pid}/photos").json()
+    assert len(listed) == 2
+
+
+@respx.mock
+def test_import_urls_records_failures_without_aborting_batch(
+    client: TestClient,
+) -> None:
+    _connect_drive(client, respx.mock)
+    pid = _create_property(client)
+
+    respx.mock.get("https://img.yad2.co.il/Pic/good.jpeg").respond(
+        content=b"\xff\xd8\xffok", headers={"content-type": "image/jpeg"}
+    )
+    respx.mock.get("https://img.yad2.co.il/Pic/missing.jpeg").respond(
+        status_code=404, text="nope"
+    )
+    respx.mock.get("https://www.googleapis.com/drive/v3/files").mock(
+        side_effect=[__resp({"files": []})]
+    )
+    _stub_subfolder_create(respx.mock)
+    _stub_file_upload(respx.mock, file_id="file-1", name="good.jpeg")
+
+    r = client.post(
+        f"/properties/{pid}/photos/import-urls",
+        json={"image_urls": [
+            "https://img.yad2.co.il/Pic/good.jpeg",
+            "https://img.yad2.co.il/Pic/missing.jpeg",
+        ]},
+    )
+    assert r.status_code == 201
+    body = r.json()
+    assert body["imported"] == 1
+    assert body["failed"] == 1
+    assert len(body["errors"]) == 1
+    assert "missing.jpeg" in body["errors"][0]
+
+
+@respx.mock
+def test_import_urls_rejects_non_yad2_hosts_ssrf_guard(client: TestClient) -> None:
+    _connect_drive(client, respx.mock)
+    pid = _create_property(client)
+
+    # SSRF guard: a non-yad2 / non-https URL must never be fetched. No respx
+    # route is registered for these — if the code tried to fetch them the test
+    # would error on an unmocked request.
+    r = client.post(
+        f"/properties/{pid}/photos/import-urls",
+        json={"image_urls": [
+            "http://169.254.169.254/latest/meta-data/",
+            "https://evil.example.com/x.jpg",
+        ]},
+    )
+    assert r.status_code == 201
+    body = r.json()
+    assert body["imported"] == 0
+    assert body["failed"] == 2
+    assert all("not allowed" in e or "https" in e for e in body["errors"])
+
+
+def test_import_urls_rejected_when_drive_not_connected(client: TestClient) -> None:
+    pid = _create_property(client)
+    r = client.post(
+        f"/properties/{pid}/photos/import-urls",
+        json={"image_urls": ["https://img.yad2.co.il/Pic/photo1.jpeg"]},
+    )
+    assert r.status_code == 412
+
+
 def __resp(json_body: dict[str, object]) -> "object":
     """Tiny helper to build a mock httpx Response for respx side_effects."""
     import httpx

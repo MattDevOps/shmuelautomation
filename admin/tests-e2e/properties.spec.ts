@@ -120,6 +120,22 @@ test('import from yad2 prefills the form, then saves the property', async ({
     })
   })
 
+  // The gallery is auto-imported to Drive on save; mock that + the photo list
+  // so saving lands on the property page (where the photos would show).
+  await page.route('**/properties/*/photos/import-urls', async (route) => {
+    await route.fulfill({
+      status: 201,
+      json: { imported: 1, skipped: 0, failed: 0, photos: [], errors: [] },
+    })
+  })
+  await page.route('**/properties/*/photos', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: [] })
+      return
+    }
+    await route.continue()
+  })
+
   await page.goto('/import')
   await page
     .getByRole('textbox', { name: /yad2 url/i })
@@ -138,8 +154,14 @@ test('import from yad2 prefills the form, then saves the property', async ({
 
   await page.getByRole('button', { name: /create property/i }).click()
 
-  await expect(page.getByRole('heading', { name: 'Properties' })).toBeVisible()
-  await expect(page.getByRole('cell', { name: 'Baka', exact: true })).toBeVisible()
+  // Saving now lands on the created property's page (so the imported photos are
+  // visible), not back on the Properties list.
+  await expect(
+    page.getByRole('heading', { name: 'Edit property' }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('textbox', { name: /^neighborhood$/i }),
+  ).toHaveValue('Baka')
 })
 
 test('create, edit, flip status, delete', async ({ page }) => {

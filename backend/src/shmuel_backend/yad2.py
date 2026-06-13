@@ -122,6 +122,13 @@ def parse_yad2_html(url: str, html: str) -> Yad2Preview:
     soup = BeautifulSoup(html, "html.parser")
     preview = Yad2Preview(url=url)
 
+    # __NEXT_DATA__ is the authoritative source — it carries the full structured
+    # listing (price, sqm, floor, address, whole photo gallery). Open Graph only
+    # exposes a title and a single image, and Yad2 ships no JSON-LD, so without
+    # this every numeric field came back blank and only one photo was found.
+    _apply_next_data(soup, preview)
+    # OG fills the human-friendly title + description that NEXT_DATA lacks, and
+    # is the photo fallback when the embedded JSON is missing/changed shape.
     _apply_open_graph(soup, preview)
     _apply_json_ld(soup, preview)
     _apply_text_heuristics(preview)
@@ -135,18 +142,161 @@ def parse_yad2_html(url: str, html: str) -> Yad2Preview:
     return preview
 
 
+def _apply_next_data(soup: BeautifulSoup, preview: Yad2Preview) -> None:
+    """Extract the structured listing from Yad2's embedded Next.js payload.
+
+    Yad2 listing pages ship the entire ad as JSON in `<script id="__NEXT_DATA__">`
+    under `props.pageProps.dehydratedState.queries[].state.data`. That object
+    holds price, square meters, floor, full street address and the complete
+    photo gallery — none of which survive in Open Graph tags. We locate the
+    listing query by its shape (a data dict carrying `metaData`) so we don't
+    depend on the exact query-key string.
+    """
+    tag = soup.find("script", id="__NEXT_DATA__")
+    raw = tag.string if tag else None
+    if not raw:
+        return
+    try:
+        root = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return
+
+    data = _find_listing_data(root, preview.url)
+    if data is None:
+        return
+
+    details = data.get("additionalDetails")
+    details = details if isinstance(details, dict) else {}
+    address = data.get("address")
+    address = address if isinstance(address, dict) else {}
+
+    price = data.get("price")
+    if not preview.price and isinstance(price, (int, float)) and price > 0:
+        preview.price = str(int(price))
+
+    sqm = details.get("squareMeter")
+    if preview.size_sqm is None and isinstance(sqm, (int, float)) and sqm > 0:
+        preview.size_sqm = int(sqm)
+
+    rooms = details.get("roomsCount")
+    if not preview.rooms and isinstance(rooms, (int, float)) and rooms > 0:
+        preview.rooms = _fmt_number(rooms)
+
+    house = address.get("house")
+    house = house if isinstance(house, dict) else {}
+    floor = house.get("floor")
+    # bool is a subclass of int — exclude it so a stray JSON true isn't read as 1.
+    if preview.floor is None and isinstance(floor, int) and not isinstance(floor, bool):
+        # floor 0 is the ground floor — a legitimate value, so guard on None.
+        preview.floor = floor
+
+    if not preview.address:
+        street = _text_of(address.get("street"))
+        number = _house_number(house.get("number"))
+        if street and number:
+            preview.address = f"{street} {number}"
+        elif street:
+            preview.address = street
+
+    if not preview.neighborhood:
+        neighborhood = _text_of(address.get("neighborhood"))
+        if neighborhood:
+            preview.neighborhood = neighborhood
+
+    if not preview.image_urls:
+        meta = data.get("metaData")
+        meta = meta if isinstance(meta, dict) else {}
+        images = meta.get("images")
+        if isinstance(images, list):
+            preview.image_urls = [u for u in images if isinstance(u, str) and u]
+        if not preview.image_urls:
+            cover = meta.get("coverImage")
+            if isinstance(cover, str) and cover:
+                preview.image_urls = [cover]
+
+
+def _find_listing_data(root: object, url: str) -> dict | None:
+    """Walk to the dehydrated query whose data is THIS listing.
+
+    A listing page can dehydrate several queries that carry `metaData` (the ad
+    itself plus "similar listings" carousels). Picking the first one risks
+    parsing a different property's price/photos. So we prefer the query whose
+    token/key matches the item token in the page URL, and only fall back to the
+    first metaData-bearing query when no token match is found.
+    """
+    try:
+        queries = root["props"]["pageProps"]["dehydratedState"]["queries"]
+    except (KeyError, TypeError):
+        return None
+    if not isinstance(queries, list):
+        return None
+
+    candidates: list[dict] = []
+    for query in queries:
+        if not isinstance(query, dict):
+            continue
+        state = query.get("state")
+        data = state.get("data") if isinstance(state, dict) else None
+        if not isinstance(data, dict) or "metaData" not in data:
+            continue
+        candidates.append(data)
+        token = data.get("token")
+        if isinstance(token, str) and token and token in url:
+            return data
+        key = query.get("queryKey")
+        if isinstance(key, list) and any(
+            isinstance(k, str) and k and k in url for k in key
+        ):
+            return data
+    return candidates[0] if candidates else None
+
+
+def _house_number(value: object) -> str | None:
+    """Normalize a house number, allowing letter suffixes ('8', '8א')."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _text_of(node: object) -> str | None:
+    """Pull the Hebrew display label out of a Yad2 `{id, text}` node."""
+    if isinstance(node, dict):
+        text = node.get("text")
+        if isinstance(text, str) and text.strip():
+            return text.strip()
+    return None
+
+
+def _fmt_number(value: int | float) -> str:
+    """Render 3 as '3' and 3.5 as '3.5' (rooms can be half-integers)."""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
 def _apply_open_graph(soup: BeautifulSoup, preview: Yad2Preview) -> None:
+    og_images: list[str] = []
     for tag in soup.find_all("meta", property=True):
         prop = tag.get("property", "")
         content = tag.get("content")
         if not content:
             continue
         if prop == "og:title" and not preview.title:
-            preview.title = content.strip()
+            # Yad2 appends a site tagline after a pipe ("... | אלפי מודעות
+            # חדשות בכל יום!") — drop it so only the listing title remains.
+            preview.title = content.split("|", 1)[0].strip()
         elif prop == "og:description" and not preview.description:
             preview.description = content.strip()
-        elif prop == "og:image" and content not in preview.image_urls:
-            preview.image_urls.append(content)
+        elif prop == "og:image" and content not in og_images:
+            og_images.append(content)
+    # Only fall back to the OG images when NEXT_DATA gave us no gallery —
+    # otherwise the single og:image is just a near-dup of the full set.
+    if not preview.image_urls:
+        preview.image_urls = og_images
 
 
 def _apply_json_ld(soup: BeautifulSoup, preview: Yad2Preview) -> None:

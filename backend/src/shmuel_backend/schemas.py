@@ -382,3 +382,18 @@ class Yad2ImportPreview(BaseModel):
     neighborhood: str | None = None
     image_urls: list[str] = []
     warnings: list[str] = []
+
+
+class PhotoUrlImportRequest(BaseModel):
+    # Remote image URLs (e.g. the Yad2 gallery) to download server-side and
+    # store in Drive. Browsers can't fetch img.yad2.co.il directly (CORS), so
+    # the import runs on the backend.
+    image_urls: list[str] = Field(min_length=1, max_length=40)
+
+
+class PhotoUrlImportResult(BaseModel):
+    imported: int
+    skipped: int
+    failed: int
+    photos: list[CloudPhotoRead] = []
+    errors: list[str] = []

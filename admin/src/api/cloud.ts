@@ -1,5 +1,9 @@
 import { API_URL, request } from './client'
-import type { CloudConnectionStatus, CloudPhoto } from './types'
+import type {
+  CloudConnectionStatus,
+  CloudPhoto,
+  PhotoUrlImportResult,
+} from './types'
 
 export const CONNECT_GOOGLE_URL = `${API_URL}/auth/google/start`
 
@@ -26,6 +30,19 @@ export async function uploadPhoto(
     method: 'POST',
     body: form,
   })
+}
+
+export function importPhotosFromUrls(
+  propertyId: string,
+  imageUrls: string[],
+): Promise<PhotoUrlImportResult> {
+  return request<PhotoUrlImportResult>(
+    `/properties/${propertyId}/photos/import-urls`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ image_urls: imageUrls }),
+    },
+  )
 }
 
 export function deletePhoto(propertyId: string, photoId: string): Promise<void> {

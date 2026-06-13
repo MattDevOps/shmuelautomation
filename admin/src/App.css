@@ -550,6 +550,21 @@ label.field > .label-text,
   max-width: 60ch;
 }
 
+.checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  color: var(--ink-soft);
+  font-size: var(--t-sm);
+  max-width: 60ch;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.checkbox-row input[type='checkbox'] {
+  margin-top: 0.2rem;
+  flex: none;
+}
+
 .dim {
   color: var(--ink-faint);
 }

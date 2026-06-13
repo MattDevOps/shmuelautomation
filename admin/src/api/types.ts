@@ -386,6 +386,14 @@ export interface Yad2ImportPreview {
   warnings: string[]
 }
 
+export interface PhotoUrlImportResult {
+  imported: number
+  skipped: number
+  failed: number
+  photos: CloudPhoto[]
+  errors: string[]
+}
+
 export const EMPTY_PROPERTY: PropertyCreate = {
   type: 'rent',
   status: 'available',
