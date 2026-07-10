@@ -15,8 +15,12 @@ function describeDispatch(slot: PostSlotWithProperty, r: DispatchResult): string
     return `No WhatsApp number is connected yet, so nothing was sent (${where}). Pair a number first.`
   if (r.skipped_reason === 'no_matching_groups')
     return `No active WhatsApp group matches this ${slot.property_type} listing (${where}).`
-  if (r.succeeded > 0)
-    return `Posted ${where} to ${r.succeeded} group${r.succeeded === 1 ? '' : 's'}.`
+  if (r.succeeded > 0) {
+    let msg = `Posted ${where} to ${r.succeeded} group${r.succeeded === 1 ? '' : 's'}`
+    if (r.photo_failures > 0)
+      msg += `, ${r.photo_failures} photo${r.photo_failures === 1 ? '' : 's'} failed`
+    return `${msg}.`
+  }
   if (r.group_failures.length > 0)
     return `Could not send ${where}: ${r.group_failures.map((f) => f.group).join(', ')}.`
   return `Nothing was sent for ${where}.`

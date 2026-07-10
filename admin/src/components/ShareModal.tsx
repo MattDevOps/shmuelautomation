@@ -64,6 +64,10 @@ export default function ShareModal({
       ? `https://wa.me/?text=${encodeURIComponent(compose.text_he)}`
       : compose.whatsapp_share_url
     : ''
+  // `?? []` because an older backend build may not send branded_photo_ids.
+  const photoIds = compose?.branded_photo_ids ?? []
+  const brandedPhotoUrl = (photoId: string): string =>
+    `${API_URL}/properties/${propertyId}/branded-photos/${photoId}`
 
   async function copy(): Promise<void> {
     if (!text) return
@@ -183,7 +187,7 @@ export default function ShareModal({
             {compose.has_collage && (
               <figure className="collage-preview">
                 <figcaption className="label-eyebrow">
-                  Photo collage — sent with the post by the WhatsApp bot
+                  Photo collage, sent with the post by the WhatsApp bot
                 </figcaption>
                 <img
                   className="collage-preview-img"
@@ -192,6 +196,41 @@ export default function ShareModal({
                   loading="lazy"
                 />
               </figure>
+            )}
+
+            {photoIds.length > 0 && (
+              <div className="branded-photos">
+                <span className="label-eyebrow">Branded photos</span>
+                <p className="muted">
+                  The WhatsApp bot sends the collage and up to 8 branded
+                  photos automatically. For Facebook, download and attach
+                  them when posting.
+                </p>
+                <div className="branded-photos-strip">
+                  {photoIds.map((photoId, i) => (
+                    <a
+                      key={photoId}
+                      href={brandedPhotoUrl(photoId)}
+                      download
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <img
+                        className="branded-photos-thumb"
+                        src={brandedPhotoUrl(photoId)}
+                        alt={`Branded property photo ${i + 1}`}
+                        loading="lazy"
+                      />
+                    </a>
+                  ))}
+                </div>
+                <a
+                  className="btn"
+                  href={`${API_URL}/properties/${propertyId}/share-pack.zip`}
+                >
+                  Download all photos (zip)
+                </a>
+              </div>
             )}
 
             <div className="modal-actions">

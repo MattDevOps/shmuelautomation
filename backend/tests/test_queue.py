@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
+import pytest
 import respx
 from fastapi.testclient import TestClient
 from httpx import Response
@@ -13,7 +14,7 @@ from shmuel_backend.enums import (
     GroupPlatform,
     PostSlotStatus,
 )
-from shmuel_backend.models import Group, PostSlot
+from shmuel_backend.models import CloudPhoto, Group, PostSlot
 
 DAEMON_URL = "http://daemon.local:8787"
 
@@ -209,6 +210,54 @@ def test_compose_has_collage_false_without_photos(client: TestClient) -> None:
     assert body["has_collage"] is False
 
 
+def _add_photo(session: AsyncSession, property_id: str, name: str) -> CloudPhoto:
+    photo = CloudPhoto(
+        property_id=uuid.UUID(property_id),
+        provider="google_drive",
+        external_id=f"drive-{name}",
+        folder_external_id="folder-1",
+        file_name=name,
+        mime_type="image/jpeg",
+        size_bytes=1234,
+        checksum=f"sum-{name}",
+    )
+    session.add(photo)
+    return photo
+
+
+async def test_compose_includes_branded_photo_ids_in_created_order(
+    client: TestClient, session: AsyncSession
+) -> None:
+    prop = _create(client)
+    first = _add_photo(session, prop["id"], "a.jpg")
+    second = _add_photo(session, prop["id"], "b.jpg")
+    await session.commit()
+
+    body = client.get(f"/properties/{prop['id']}/compose").json()
+    assert body["has_collage"] is True
+    assert body["branded_photo_ids"] == [str(first.id), str(second.id)]
+
+
+def test_compose_branded_photo_ids_empty_without_photos(client: TestClient) -> None:
+    prop = _create(client)
+    body = client.get(f"/properties/{prop['id']}/compose").json()
+    assert body["branded_photo_ids"] == []
+
+
+async def test_compose_branded_photo_ids_capped_at_pack_size(
+    client: TestClient, session: AsyncSession
+) -> None:
+    """The strip mirrors what the bot sends: at most MAX_PACK_PHOTOS ids."""
+    prop = _create(client)
+    photos = [_add_photo(session, prop["id"], f"{i:02d}.jpg") for i in range(10)]
+    await session.commit()
+    all_ids = {str(p.id) for p in photos}
+
+    body = client.get(f"/properties/{prop['id']}/compose").json()
+    assert len(body["branded_photo_ids"]) == 8
+    assert set(body["branded_photo_ids"]) <= all_ids
+
+
 def test_collage_404_when_no_photos(client: TestClient) -> None:
     prop = _create(client, type="rent", price="8000", neighborhood="Talbiya")
     r = client.get(f"/properties/{prop['id']}/collage")
@@ -219,6 +268,84 @@ def test_collage_404_for_missing_property(client: TestClient) -> None:
     r = client.get(
         "/properties/00000000-0000-0000-0000-000000000000/collage"
     )
+    assert r.status_code == 404
+
+
+# ── GET /properties/{id}/branded-photos/{photo_id} + /share-pack.zip ──
+
+
+def test_branded_photo_returns_jpeg(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    prop = _create(client)
+    fake_jpeg = b"\xff\xd8-branded"
+
+    async def fake_branded(_s: object, _pid: object, _photo_id: object) -> bytes:
+        return fake_jpeg
+
+    monkeypatch.setattr(
+        "shmuel_backend.queue_routes.render_branded_photo", fake_branded
+    )
+    r = client.get(f"/properties/{prop['id']}/branded-photos/{uuid.uuid4()}")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/jpeg"
+    assert r.headers["cache-control"] == "private, max-age=120"
+    # Attachment disposition so the modal's per-photo download links work
+    # cross-origin (an embedded <img> ignores it).
+    assert "attachment" in r.headers["content-disposition"]
+    assert prop["id"][:8] in r.headers["content-disposition"]
+    assert r.headers["content-disposition"].endswith('.jpg"')
+    assert r.content == fake_jpeg
+
+
+def test_branded_photo_404_when_unavailable(client: TestClient) -> None:
+    # No Drive connection in tests, so the renderer yields None.
+    prop = _create(client)
+    r = client.get(f"/properties/{prop['id']}/branded-photos/{uuid.uuid4()}")
+    assert r.status_code == 404
+
+
+def test_branded_photo_404_for_missing_property(client: TestClient) -> None:
+    r = client.get(
+        f"/properties/00000000-0000-0000-0000-000000000000/branded-photos/{uuid.uuid4()}"
+    )
+    assert r.status_code == 404
+
+
+def test_share_pack_zip_contains_collage_and_photos(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import io
+    import zipfile
+
+    from shmuel_backend.collage_service import SharePack
+
+    prop = _create(client)
+    pack = SharePack(
+        collage_png=b"\x89PNG-collage",
+        photos=[b"\xff\xd8-one", b"\xff\xd8-two"],
+    )
+
+    async def fake_pack(_s: object, _pid: object, **_kw: object) -> SharePack:
+        return pack
+
+    monkeypatch.setattr("shmuel_backend.queue_routes.render_share_pack", fake_pack)
+    r = client.get(f"/properties/{prop['id']}/share-pack.zip")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/zip"
+    assert prop["id"][:8] in r.headers["content-disposition"]
+    assert "attachment" in r.headers["content-disposition"]
+
+    zf = zipfile.ZipFile(io.BytesIO(r.content))
+    assert zf.namelist() == ["collage.png", "photo-01.jpg", "photo-02.jpg"]
+    assert zf.read("collage.png") == b"\x89PNG-collage"
+    assert zf.read("photo-02.jpg") == b"\xff\xd8-two"
+
+
+def test_share_pack_zip_404_when_no_pack(client: TestClient) -> None:
+    # No Drive connection in tests, so the pack is None.
+    prop = _create(client)
+    r = client.get(f"/properties/{prop['id']}/share-pack.zip")
     assert r.status_code == 404
 
 
@@ -287,6 +414,7 @@ async def test_dispatch_now_sends_and_rolls_next_slot(
     body = r.json()
     assert body["status"] == "posted"
     assert body["attempted"] == 1 and body["succeeded"] == 1
+    assert body["photo_failures"] == 0
 
     session.expire_all()
     slots = await _slots_for(session, prop["id"])

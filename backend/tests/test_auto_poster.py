@@ -146,11 +146,28 @@ async def test_dispatch_skips_groups_with_no_target_url(
     assert slot.status == PostSlotStatus.PENDING
 
 
+FAKE_PNG = b"\x89PNG-collage-bytes"
+FAKE_JPEGS = [b"\xff\xd8-branded-1", b"\xff\xd8-branded-2"]
+
+
+def _mock_share_pack(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stub render_share_pack with a collage + two branded photos, and zero
+    the inter-image pacing delay so tests don't sleep."""
+    from shmuel_backend.collage_service import SharePack
+
+    async def fake_pack(_session: AsyncSession, _pid: object, **_kw: object) -> SharePack:
+        return SharePack(collage_png=FAKE_PNG, photos=list(FAKE_JPEGS))
+
+    monkeypatch.setattr("shmuel_backend.auto_poster.render_share_pack", fake_pack)
+    monkeypatch.setattr("shmuel_backend.auto_poster._INTER_IMAGE_DELAY_S", 0)
+
+
 @pytest.mark.asyncio
-async def test_dispatch_sends_collage_image_when_available(
+async def test_dispatch_sends_collage_then_branded_photos(
     session: AsyncSession, with_daemon: None, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """When a collage renders, dispatch posts an image+caption, not plain text."""
+    """When a share pack renders, dispatch posts the captioned collage first,
+    then each branded photo with no caption (not plain text)."""
     import base64
     import json
 
@@ -160,14 +177,7 @@ async def test_dispatch_sends_collage_image_when_available(
                       audience=GroupAudience.BOTH, target_url="55555-55555@g.us")
     await session.commit()
 
-    fake_png = b"\x89PNG-collage-bytes"
-
-    async def fake_collage(_session: AsyncSession, _pid: object) -> bytes:
-        return fake_png
-
-    monkeypatch.setattr(
-        "shmuel_backend.auto_poster.render_property_collage", fake_collage
-    )
+    _mock_share_pack(monkeypatch)
 
     with respx.mock(assert_all_called=False) as rmock:
         img_route = rmock.post(f"{DAEMON_URL}/send-group-image").mock(
@@ -179,12 +189,51 @@ async def test_dispatch_sends_collage_image_when_available(
         result = await dispatch_slot(session, slot)
 
     assert result.succeeded == 1
-    assert img_route.call_count == 1
+    assert img_route.call_count == 3  # collage + 2 branded photos
     assert text_route.call_count == 0
-    body = json.loads(img_route.calls[0].request.content)
-    assert body["groupId"] == "55555-55555@g.us"
-    assert base64.b64decode(body["imageBase64"]) == fake_png
-    assert body["caption"]  # the post text rides along as the caption
+
+    bodies = [json.loads(c.request.content) for c in img_route.calls]
+    assert all(b["groupId"] == "55555-55555@g.us" for b in bodies)
+    assert base64.b64decode(bodies[0]["imageBase64"]) == FAKE_PNG
+    assert bodies[0]["caption"]  # the post text rides along as the caption
+    assert [base64.b64decode(b["imageBase64"]) for b in bodies[1:]] == FAKE_JPEGS
+    assert all(b["caption"] == "" for b in bodies[1:])  # photos ride captionless
+    assert result.photo_failures == 0
+    assert result.group_failures == []
+    assert slot.status == PostSlotStatus.POSTED
+
+
+@pytest.mark.asyncio
+async def test_dispatch_photo_failure_does_not_unsucceed_group(
+    session: AsyncSession, with_daemon: None, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A dropped branded-photo send is tallied in photo_failures but the group
+    still counts: the collage + caption already landed and we won't
+    double-post on retry. group_failures stays reserved for groups that did
+    not get the post at all."""
+    prop = await _make_property(session, prop_type=PropertyType.RENT)
+    slot = await _make_slot(session, prop)
+    await _make_group(session, platform=GroupPlatform.WHATSAPP,
+                      audience=GroupAudience.BOTH, target_url="66666-66666@g.us",
+                      name="Flaky")
+    await session.commit()
+
+    _mock_share_pack(monkeypatch)
+
+    with respx.mock(assert_all_called=False) as rmock:
+        rmock.post(f"{DAEMON_URL}/send-group-image").mock(
+            side_effect=[
+                Response(200, json={"ok": True, "messageId": "IMG"}),  # collage
+                Response(503, text="daemon hiccup"),                    # photo 1
+                Response(200, json={"ok": True, "messageId": "IMG2"}),  # photo 2
+            ],
+        )
+        result = await dispatch_slot(session, slot)
+
+    assert result.attempted == 1
+    assert result.succeeded == 1
+    assert result.group_failures == []  # the group itself got the post
+    assert result.photo_failures == 1
     assert slot.status == PostSlotStatus.POSTED
 
 
