@@ -11,6 +11,7 @@ the scheduler's tick on each due slot.
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 from dataclasses import dataclass, field
@@ -19,7 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shmuel_backend import whatsapp_client
-from shmuel_backend.collage_service import render_property_collage
+from shmuel_backend.collage_service import render_share_pack
 from shmuel_backend.compose import compose_post
 from shmuel_backend.config import settings
 from shmuel_backend.enums import (
@@ -32,6 +33,12 @@ from shmuel_backend.models import CloudPhoto, Group, PostSlot, Property
 
 log = logging.getLogger(__name__)
 
+# How many groups get their send chains run at once, and the pause between
+# consecutive image sends within one group (a burst of back-to-back images
+# is both spam-shaped and ban-bait).
+_GROUP_SEND_CONCURRENCY = 3
+_INTER_IMAGE_DELAY_S = 1.0
+
 
 @dataclass
 class DispatchResult:
@@ -39,8 +46,11 @@ class DispatchResult:
 
     `attempted` counts groups we tried to reach; `succeeded` counts the
     ones the daemon accepted. A partial failure (some groups OK, some
-    failed) is NOT enough to flip the slot to POSTED — caller decides
-    whether to mark it POSTED or leave it for retry.
+    failed) is NOT enough to flip the slot to POSTED; the caller decides
+    whether to mark it POSTED or leave it for retry. `group_failures`
+    lists only groups that did NOT get the post; follow-up branded photos
+    that fail are tallied in `photo_failures` instead (the group still got
+    the collage + caption).
     """
 
     slot_id: str
@@ -48,6 +58,78 @@ class DispatchResult:
     succeeded: int = 0
     skipped_reason: str | None = None
     group_failures: list[dict[str, str]] = field(default_factory=list)
+    photo_failures: int = 0
+
+
+@dataclass
+class _GroupOutcome:
+    """One group's send chain result, merged into DispatchResult by the caller."""
+
+    succeeded: bool
+    failure: dict[str, str] | None = None
+    photo_failures: int = 0
+
+
+async def _send_group_post(
+    group: Group,
+    *,
+    slot_id: str,
+    message: str,
+    collage_b64: str | None,
+    photo_b64s: list[str],
+    sem: asyncio.Semaphore,
+) -> _GroupOutcome:
+    """Send one group its post: collage (or text), then each branded photo.
+
+    Order within the group is guaranteed (collage first, then photos, with a
+    pacing delay between images); `sem` bounds how many groups send at once.
+    """
+    # `target_url` on the Group row holds the WhatsApp group JID (e.g.
+    # `12345-67890@g.us`) or bare id. Admin populates it from the
+    # daemon's GET /groups list rather than free-form paste.
+    to = group.target_url or ""
+    if not to:
+        return _GroupOutcome(
+            succeeded=False,
+            failure={"group": group.name, "error": "missing_target_url"},
+        )
+
+    async with sem:
+        if collage_b64 is not None:
+            sent = await whatsapp_client.send_image_to_group(
+                group_id=to,
+                image_base64=collage_b64,
+                caption=message,
+            )
+        else:
+            sent = await whatsapp_client.send_to_group(
+                group_id=to,
+                message=message,
+            )
+        if sent is None:
+            return _GroupOutcome(
+                succeeded=False,
+                failure={"group": group.name, "error": "daemon_failure"},
+            )
+
+        # Follow the collage with each branded photo (no caption). The group
+        # already counts as succeeded (the collage + caption landed), so a
+        # dropped photo is logged and tallied but doesn't flip the group.
+        outcome = _GroupOutcome(succeeded=True)
+        for photo_b64 in photo_b64s:
+            await asyncio.sleep(_INTER_IMAGE_DELAY_S)
+            photo_sent = await whatsapp_client.send_image_to_group(
+                group_id=to,
+                image_base64=photo_b64,
+                caption="",
+            )
+            if photo_sent is None:
+                log.warning(
+                    "auto_poster: slot %s: branded photo send failed for group %s",
+                    slot_id, group.name,
+                )
+                outcome.photo_failures += 1
+        return outcome
 
 
 def _audience_for_property(prop: Property) -> GroupAudience:
@@ -144,38 +226,41 @@ async def dispatch_slot(
     photos = list(photos_rows.scalars().all())
     message = _build_message(prop, photos)
 
-    # Build the share collage (up to 4 photos + logo) once and reuse it for
-    # every group send. When there are no photos / no Drive connection the
-    # collage is None and we fall back to a text-only post.
+    # Build the share pack (collage + individually branded photos) once and
+    # reuse the encoded payloads for every group send. When there are no
+    # photos / no Drive connection the pack is None and we fall back to a
+    # text-only post.
     collage_b64: str | None = None
-    collage_png = await render_property_collage(session, prop.id)
-    if collage_png is not None:
-        collage_b64 = base64.b64encode(collage_png).decode("ascii")
+    photo_b64s: list[str] = []
+    pack = await render_share_pack(session, prop.id)
+    if pack is not None:
+        collage_b64 = base64.b64encode(pack.collage_png).decode("ascii")
+        photo_b64s = [base64.b64encode(jpeg).decode("ascii") for jpeg in pack.photos]
 
-    for group in groups:
-        result.attempted += 1
-        # `target_url` on the Group row holds the WhatsApp group JID (e.g.
-        # `12345-67890@g.us`) or bare id. Admin populates it from the
-        # daemon's GET /groups list rather than free-form paste.
-        to = group.target_url or ""
-        if not to:
-            result.group_failures.append({"group": group.name, "error": "missing_target_url"})
-            continue
-        if collage_b64 is not None:
-            sent = await whatsapp_client.send_image_to_group(
-                group_id=to,
-                image_base64=collage_b64,
-                caption=message,
-            )
-        else:
-            sent = await whatsapp_client.send_to_group(
-                group_id=to,
+    # Groups run concurrently (bounded) while each group's own sends stay
+    # sequential and paced, so the whole dispatch doesn't take minutes but
+    # also doesn't hit one group with a machine-gun burst of images.
+    sem = asyncio.Semaphore(_GROUP_SEND_CONCURRENCY)
+    outcomes = await asyncio.gather(
+        *(
+            _send_group_post(
+                group,
+                slot_id=str(slot.id),
                 message=message,
+                collage_b64=collage_b64,
+                photo_b64s=photo_b64s,
+                sem=sem,
             )
-        if sent is None:
-            result.group_failures.append({"group": group.name, "error": "daemon_failure"})
-            continue
-        result.succeeded += 1
+            for group in groups
+        )
+    )
+    for outcome in outcomes:
+        result.attempted += 1
+        if outcome.succeeded:
+            result.succeeded += 1
+        if outcome.failure is not None:
+            result.group_failures.append(outcome.failure)
+        result.photo_failures += outcome.photo_failures
 
     if mark_posted_on_success and result.succeeded > 0:
         from datetime import UTC, datetime

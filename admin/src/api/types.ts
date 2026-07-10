@@ -117,6 +117,9 @@ export interface DispatchResult {
   succeeded: number
   skipped_reason: string | null
   group_failures: { group: string; error: string }[]
+  // Branded follow-up photos that failed to send; the groups still got the
+  // collage + caption, so these are separate from group_failures.
+  photo_failures: number
 }
 
 export interface PostCompose {
@@ -125,6 +128,8 @@ export interface PostCompose {
   whatsapp_share_url: string
   facebook_share_url: string | null
   has_collage: boolean
+  // CloudPhoto ids (created_at order) for /properties/{id}/branded-photos/{photoId}.
+  branded_photo_ids: string[]
 }
 
 export const GROUP_PLATFORMS = [

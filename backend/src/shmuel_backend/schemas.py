@@ -109,6 +109,9 @@ class DispatchResultRead(BaseModel):
     succeeded: int
     skipped_reason: str | None = None
     group_failures: list[dict[str, str]] = Field(default_factory=list)
+    # Branded follow-up photos that failed to send (the groups themselves
+    # still got the collage + caption, so they aren't in group_failures).
+    photo_failures: int = 0
 
 
 _HHMM = r"^([01]\d|2[0-3]):[0-5]\d$"
@@ -148,6 +151,9 @@ class PostCompose(BaseModel):
     facebook_share_url: str | None = None
     # True when the property has photos, so the UI can offer a collage preview.
     has_collage: bool = False
+    # This property's CloudPhoto ids (created_at order) so the UI can build
+    # /properties/{id}/branded-photos/{photo_id} URLs for the photo strip.
+    branded_photo_ids: list[uuid.UUID] = Field(default_factory=list)
 
 
 class PublicPhoto(BaseModel):

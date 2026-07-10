@@ -84,6 +84,8 @@ describe('QueuePage', () => {
           text_he: 'להשכרה',
           whatsapp_share_url: 'https://wa.me/?text=x',
           facebook_share_url: null,
+          has_collage: false,
+          branded_photo_ids: [],
         })
       }
       if (url.includes('/groups')) return jsonResponse([])
@@ -143,6 +145,7 @@ describe('QueuePage', () => {
           succeeded: 2,
           skipped_reason: null,
           group_failures: [],
+          photo_failures: 0,
         }),
       ) // dispatch
       .mockResolvedValueOnce(jsonResponse([])) // refresh
@@ -159,6 +162,31 @@ describe('QueuePage', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(/posted baka to 2 groups/i)
   })
 
+  it('Post now notice reports failed branded photos', async () => {
+    fetchSpy
+      .mockResolvedValueOnce(jsonResponse([makeSlot()]))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          slot_id: 's1',
+          status: 'posted',
+          attempted: 2,
+          succeeded: 2,
+          skipped_reason: null,
+          group_failures: [],
+          photo_failures: 3,
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse([]))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderPage()
+
+    await screen.findByText('Baka')
+    await userEvent.click(screen.getByRole('button', { name: /post baka to whatsapp now/i }))
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      /posted baka to 2 groups, 3 photos failed/i,
+    )
+  })
+
   it('Post now surfaces the "no number connected" case', async () => {
     fetchSpy
       .mockResolvedValueOnce(jsonResponse([makeSlot()]))
@@ -170,6 +198,7 @@ describe('QueuePage', () => {
           succeeded: 0,
           skipped_reason: 'whatsapp_daemon_unconfigured',
           group_failures: [],
+          photo_failures: 0,
         }),
       )
       .mockResolvedValueOnce(jsonResponse([makeSlot()]))

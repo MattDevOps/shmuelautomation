@@ -7,7 +7,10 @@ the page, sees due slots, taps share for each. Slot lifecycle:
   pending → skipped  (admin chose to skip this property at this slot)
   pending → cancelled (property went rented/sold/deleted)
 """
+import io
 import uuid
+import zipfile
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -16,7 +19,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shmuel_backend.auto_poster import dispatch_slot
-from shmuel_backend.collage_service import render_property_collage
+from shmuel_backend.collage_service import (
+    MAX_PACK_PHOTOS,
+    render_branded_photo,
+    render_property_collage,
+    render_share_pack,
+)
 from shmuel_backend.compose import (
     compose_post,
     facebook_share_url,
@@ -191,6 +199,7 @@ async def dispatch_now(slot_id: uuid.UUID, session: SessionDep) -> DispatchResul
         succeeded=result.succeeded,
         skipped_reason=result.skipped_reason,
         group_failures=result.group_failures,
+        photo_failures=result.photo_failures,
     )
 
 
@@ -244,6 +253,29 @@ async def cancel_slot(slot_id: uuid.UUID, session: SessionDep) -> Response:
 compose_router = APIRouter(prefix="/properties", tags=["compose"])
 
 
+async def _serve_property_media(
+    session: AsyncSession,
+    property_id: uuid.UUID,
+    render: Callable[[], Awaitable[bytes | None]],
+    *,
+    media_type: str,
+    missing_detail: str,
+    filename: str | None = None,
+) -> Response:
+    """Shared shape of the media endpoints: 404 for a missing property, 404
+    when the renderer has no material, short private caching, and (for the
+    downloadable ones) an attachment filename."""
+    if await session.get(Property, property_id) is None:
+        raise HTTPException(status_code=404, detail="property not found")
+    content = await render()
+    if content is None:
+        raise HTTPException(status_code=404, detail=missing_detail)
+    headers = {"cache-control": "private, max-age=120"}
+    if filename is not None:
+        headers["content-disposition"] = f'attachment; filename="{filename}"'
+    return Response(content=content, media_type=media_type, headers=headers)
+
+
 @compose_router.get("/{property_id}/compose", response_model=PostCompose)
 async def compose_property_post(
     property_id: uuid.UUID, session: SessionDep
@@ -267,6 +299,9 @@ async def compose_property_post(
         whatsapp_share_url=whatsapp_share_url(text_en),
         facebook_share_url=facebook_share_url(prop.yad2_url) if prop.yad2_url else None,
         has_collage=len(photos) > 0,
+        # Same cap as the share pack, so the modal's strip mirrors what the
+        # bot actually sends (dedup can trim it further at render time).
+        branded_photo_ids=[p.id for p in photos[:MAX_PACK_PHOTOS]],
     )
 
 
@@ -278,14 +313,62 @@ async def property_collage(property_id: uuid.UUID, session: SessionDep) -> Respo
     preview exactly what goes out. 404 when there are no photos / no Drive
     connection, which the UI shows as 'no collage yet'.
     """
-    prop = await session.get(Property, property_id)
-    if prop is None:
-        raise HTTPException(status_code=404, detail="property not found")
-    png = await render_property_collage(session, property_id)
-    if png is None:
-        raise HTTPException(status_code=404, detail="no collage available")
-    return Response(
-        content=png,
+    return await _serve_property_media(
+        session,
+        property_id,
+        lambda: render_property_collage(session, property_id),
         media_type="image/png",
-        headers={"cache-control": "private, max-age=120"},
+        missing_detail="no collage available",
+    )
+
+
+@compose_router.get("/{property_id}/branded-photos/{photo_id}")
+async def property_branded_photo(
+    property_id: uuid.UUID, photo_id: uuid.UUID, session: SessionDep
+) -> Response:
+    """One property photo, logo-branded, as a JPEG.
+
+    This is the same image the WhatsApp auto-poster sends after the collage;
+    the admin's share modal uses it for the Facebook attach-photos flow. Sent
+    as an attachment so the modal's per-photo download links work cross-origin
+    (embedded <img> rendering is unaffected by the disposition header).
+    """
+    short_id = str(property_id)[:8]
+    return await _serve_property_media(
+        session,
+        property_id,
+        lambda: render_branded_photo(session, property_id, photo_id),
+        media_type="image/jpeg",
+        missing_detail="no branded photo available",
+        filename=f"property-{short_id}-photo-{photo_id.hex[:8]}.jpg",
+    )
+
+
+@compose_router.get("/{property_id}/share-pack.zip")
+async def property_share_pack_zip(
+    property_id: uuid.UUID, session: SessionDep
+) -> Response:
+    """The whole share pack (collage.png + branded photo-NN.jpg) as one zip,
+    so the admin can grab everything for a Facebook post in a single tap."""
+
+    async def render_zip() -> bytes | None:
+        pack = await render_share_pack(session, property_id)
+        if pack is None:
+            return None
+        buf = io.BytesIO()
+        # ZIP_STORED: PNG/JPEG payloads are already compressed.
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+            zf.writestr("collage.png", pack.collage_png)
+            for i, jpeg in enumerate(pack.photos, start=1):
+                zf.writestr(f"photo-{i:02d}.jpg", jpeg)
+        return buf.getvalue()
+
+    short_id = str(property_id)[:8]
+    return await _serve_property_media(
+        session,
+        property_id,
+        render_zip,
+        media_type="application/zip",
+        missing_detail="no share pack available",
+        filename=f"property-{short_id}-share-pack.zip",
     )

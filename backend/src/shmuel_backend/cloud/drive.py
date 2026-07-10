@@ -262,10 +262,17 @@ class GoogleDriveStorage(CloudStorage):
 
     async def download_file(self, refresh_token: str, file_id: str) -> bytes:
         access = await refresh_access_token(refresh_token)
+        return await self.download_file_with_access(access, file_id)
+
+    async def download_file_with_access(
+        self, access_token: str, file_id: str
+    ) -> bytes:
+        """Download with a pre-refreshed access token, so batch callers can
+        exchange the refresh token once instead of once per file."""
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
             r = await client.get(
                 f"{DRIVE_API}/files/{file_id}",
-                headers=_auth_headers(access),
+                headers=_auth_headers(access_token),
                 params={"alt": "media"},
             )
         _raise_if_unauthorized(r)

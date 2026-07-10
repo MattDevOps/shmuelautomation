@@ -16,6 +16,7 @@ const baseCompose = {
   whatsapp_share_url: 'https://wa.me/?text=For%20rent',
   facebook_share_url: 'https://www.facebook.com/sharer/sharer.php?u=https',
   has_collage: false,
+  branded_photo_ids: [],
 }
 
 function setupFetch(
@@ -147,6 +148,64 @@ describe('ShareModal', () => {
       expect(onMarkPosted).toHaveBeenCalled()
       expect(onClose).toHaveBeenCalled()
     })
+  })
+
+  it('renders the branded photo strip and zip download when photos exist', async () => {
+    setupFetch(fetchSpy, {
+      compose: {
+        ...baseCompose,
+        has_collage: true,
+        branded_photo_ids: ['ph1', 'ph2'],
+      },
+    })
+    render(
+      <ShareModal
+        propertyId="p1"
+        propertyType="rent"
+        propertyLabel="Baka"
+        onClose={() => {}}
+      />,
+    )
+    await screen.findByDisplayValue(/for rent/i)
+
+    const thumb1 = screen.getByRole('img', { name: /branded property photo 1/i })
+    expect(thumb1.getAttribute('src')).toContain(
+      '/properties/p1/branded-photos/ph1',
+    )
+    const thumb2 = screen.getByRole('img', { name: /branded property photo 2/i })
+    expect(thumb2.getAttribute('src')).toContain(
+      '/properties/p1/branded-photos/ph2',
+    )
+    // Each thumbnail is wrapped in a download link to the full image.
+    expect(thumb1.closest('a')?.getAttribute('href')).toContain(
+      '/properties/p1/branded-photos/ph1',
+    )
+    expect(thumb1.closest('a')).toHaveAttribute('download')
+
+    expect(
+      screen
+        .getByRole('link', { name: /download all photos \(zip\)/i })
+        .getAttribute('href'),
+    ).toContain('/properties/p1/share-pack.zip')
+  })
+
+  it('hides the branded photo strip when there are no photos', async () => {
+    setupFetch(fetchSpy) // baseCompose: no collage, no branded photos
+    render(
+      <ShareModal
+        propertyId="p1"
+        propertyType="rent"
+        propertyLabel="Baka"
+        onClose={() => {}}
+      />,
+    )
+    await screen.findByDisplayValue(/for rent/i)
+    expect(
+      screen.queryByRole('link', { name: /download all photos/i }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('img', { name: /branded property photo/i }),
+    ).not.toBeInTheDocument()
   })
 
   it('renders matching groups grouped by platform with checkboxes', async () => {

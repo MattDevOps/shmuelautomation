@@ -29,6 +29,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from shmuel_backend.cloud import drive
+from shmuel_backend.cloud.connections import get_google_connection
 from shmuel_backend.cloud.crypto import decrypt, encrypt
 from shmuel_backend.cloud.drive import GoogleDriveStorage
 from shmuel_backend.cloud.storage import (
@@ -68,10 +69,7 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
 async def _get_connection(session: AsyncSession) -> CloudConnection | None:
-    result = await session.execute(
-        select(CloudConnection).where(CloudConnection.provider == PROVIDER_GOOGLE)
-    )
-    return result.scalar_one_or_none()
+    return await get_google_connection(session)
 
 
 async def _require_connection(session: AsyncSession) -> CloudConnection:
