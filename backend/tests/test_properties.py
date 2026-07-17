@@ -148,3 +148,43 @@ def test_patch_missing_returns_404(client: TestClient) -> None:
 def test_delete_missing_returns_404(client: TestClient) -> None:
     r = client.delete("/properties/00000000-0000-0000-0000-000000000000")
     assert r.status_code == 404
+
+
+def test_create_persists_amenities(client: TestClient) -> None:
+    r = client.post(
+        "/properties",
+        json=_payload(amenities=["parking", "security_room"]),
+    )
+    assert r.status_code == 201
+    # Stored/returned in canonical order (security_room first), regardless of
+    # the order they were sent in.
+    assert r.json()["amenities"] == ["security_room", "parking"]
+
+    got = client.get(f"/properties/{r.json()['id']}").json()
+    assert got["amenities"] == ["security_room", "parking"]
+
+
+def test_create_drops_unknown_amenity_slugs(client: TestClient) -> None:
+    r = client.post(
+        "/properties",
+        json=_payload(amenities=["parking", "not_a_real_amenity", "parking"]),
+    )
+    assert r.status_code == 201
+    # Unknown slugs and duplicates are filtered out.
+    assert r.json()["amenities"] == ["parking"]
+
+
+def test_amenities_default_to_empty_list(client: TestClient) -> None:
+    r = client.post("/properties", json=_payload())
+    assert r.status_code == 201
+    assert r.json()["amenities"] == []
+
+
+def test_patch_updates_amenities(client: TestClient) -> None:
+    created = client.post("/properties", json=_payload()).json()
+    r = client.patch(
+        f"/properties/{created['id']}",
+        json={"amenities": ["elevator", "security_room"]},
+    )
+    assert r.status_code == 200
+    assert r.json()["amenities"] == ["security_room", "elevator"]

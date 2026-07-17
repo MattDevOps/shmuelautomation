@@ -48,6 +48,7 @@ describe('ImportYad2Page', () => {
       floor: null,
       address: 'Emek Refaim 12',
       neighborhood: 'Baka',
+      amenities: ['security_room', 'parking'],
       image_urls: ['https://img.yad2.co.il/p1.jpg'],
       warnings: [],
     }
@@ -71,6 +72,12 @@ describe('ImportYad2Page', () => {
       'src',
       'https://img.yad2.co.il/p1.jpg',
     )
+    // Amenities from the preview pre-check the matching boxes (mamad + parking).
+    expect(
+      screen.getByRole('checkbox', { name: /safe room \(mamad\)/i }),
+    ).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /^parking$/i })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /^elevator$/i })).not.toBeChecked()
   })
 
   it('shows warnings from the backend', async () => {

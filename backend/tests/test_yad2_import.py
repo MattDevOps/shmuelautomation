@@ -25,6 +25,15 @@ def test_imports_full_listing_from_next_data(client: TestClient) -> None:
     assert body["floor"] == 4
     assert body["address"] == "השופט חיים כהן 8"
     assert body["neighborhood"] == "ארנונה"
+    # Amenities: `inProperty` true-flags plus a derived parking from the
+    # parkingSpacesCount count; false flags (balcony) are dropped, and the
+    # result is in canonical order (security_room first).
+    assert body["amenities"] == [
+        "security_room",
+        "parking",
+        "elevator",
+        "air_conditioning",
+    ]
     # og:title's trailing site tagline ("| אלפי מודעות...") is stripped.
     assert body["title"] == "דירה, השופט חיים כהן 8, ארנונה, ירושלים"
     # Full gallery from NEXT_DATA, not the single og:image.

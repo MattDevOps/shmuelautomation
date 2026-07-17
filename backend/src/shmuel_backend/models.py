@@ -68,6 +68,10 @@ class Property(Base):
     notes: Mapped[str | None] = mapped_column(Text)
     yad2_url: Mapped[str | None] = mapped_column(String(500))
 
+    # Amenity slugs the property has (e.g. ['security_room', 'parking']).
+    # Vocabulary + Yad2 mapping live in shmuel_backend.amenities.
+    amenities: Mapped[list[str]] = mapped_column(JSON, default=list)
+
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         server_default=func.now(),

@@ -19,6 +19,7 @@ function previewToDraft(p: Yad2ImportPreview): PropertyCreate {
     floor: p.floor,
     address: p.address,
     neighborhood: p.neighborhood,
+    amenities: p.amenities ?? [],
     description: [p.title, p.description].filter(Boolean).join('\n\n') || null,
     yad2_url: p.url,
   }

@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import httpx
 from bs4 import BeautifulSoup
 
+from shmuel_backend.amenities import amenities_from_yad2
 from shmuel_backend.config import settings
 
 YAD2_HOST_SUFFIX = "yad2.co.il"
@@ -75,6 +76,7 @@ class Yad2Preview:
     floor: int | None = None
     address: str | None = None
     neighborhood: str | None = None
+    amenities: list[str] = field(default_factory=list)
     image_urls: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
@@ -202,6 +204,11 @@ def _apply_next_data(soup: BeautifulSoup, preview: Yad2Preview) -> None:
         neighborhood = _text_of(address.get("neighborhood"))
         if neighborhood:
             preview.neighborhood = neighborhood
+
+    # Amenity flags (mamad, parking, elevator, ...) live under `inProperty`,
+    # with parking/balcony also derivable from counts in `additionalDetails`.
+    if not preview.amenities:
+        preview.amenities = amenities_from_yad2(data.get("inProperty"), details)
 
     if not preview.image_urls:
         meta = data.get("metaData")

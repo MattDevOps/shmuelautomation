@@ -7,6 +7,23 @@ export type PropertyStatus = (typeof PROPERTY_STATUSES)[number]
 export const BROKER_FEE_STATUSES = ['yes', 'no', 'partial'] as const
 export type BrokerFeeStatus = (typeof BROKER_FEE_STATUSES)[number]
 
+// Amenity slugs + labels. Mirrors backend shmuel_backend/amenities.py — keep
+// the two in sync. Order is the display/storage order (mamad first).
+export const AMENITIES: { slug: string; label: string }[] = [
+  { slug: 'security_room', label: 'Safe room (mamad)' },
+  { slug: 'parking', label: 'Parking' },
+  { slug: 'elevator', label: 'Elevator' },
+  { slug: 'balcony', label: 'Balcony' },
+  { slug: 'air_conditioning', label: 'Air conditioning' },
+  { slug: 'storage', label: 'Storage room' },
+  { slug: 'bars', label: 'Window bars' },
+  { slug: 'accessible', label: 'Accessible' },
+  { slug: 'renovated', label: 'Renovated' },
+  { slug: 'furnished', label: 'Furnished' },
+  { slug: 'solar_boiler', label: 'Solar water heater' },
+  { slug: 'shelter', label: 'Building shelter' },
+]
+
 export interface Property {
   id: string
   type: PropertyType
@@ -26,6 +43,7 @@ export interface Property {
   description: string | null
   notes: string | null
   yad2_url: string | null
+  amenities: string[]
   created_at: string
   updated_at: string
 }
@@ -387,6 +405,7 @@ export interface Yad2ImportPreview {
   floor: number | null
   address: string | null
   neighborhood: string | null
+  amenities: string[]
   image_urls: string[]
   warnings: string[]
 }
@@ -417,4 +436,5 @@ export const EMPTY_PROPERTY: PropertyCreate = {
   description: null,
   notes: null,
   yad2_url: null,
+  amenities: [],
 }

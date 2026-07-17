@@ -590,6 +590,34 @@ label.field > .label-text,
   color: var(--ink);
 }
 
+.amenities-fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.amenities-fieldset legend {
+  padding: 0;
+  margin-bottom: var(--space-2xs);
+}
+
+.amenities-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0 var(--space-lg);
+}
+
+.amenities-grid .checkbox-row {
+  margin: 0.25rem 0;
+}
+
+@media (max-width: 720px) {
+  .amenities-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .form-actions {
   display: flex;
   justify-content: flex-end;

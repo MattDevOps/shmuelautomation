@@ -45,6 +45,7 @@ export default function PropertyEditPage() {
           description: p.description,
           notes: p.notes,
           yad2_url: p.yad2_url,
+          amenities: p.amenities ?? [],
         })
       })
       .catch((e: Error) => setLoadError(e.message))

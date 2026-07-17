@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from shmuel_backend.amenities import normalize_amenities
 from shmuel_backend.enums import (
     BrokerFeeStatus,
     GroupAudience,
@@ -35,6 +36,13 @@ class PropertyBase(BaseModel):
     description: str | None = None
     notes: str | None = None
     yad2_url: str | None = Field(default=None, max_length=500)
+    amenities: list[str] = Field(default_factory=list)
+
+    @field_validator("amenities")
+    @classmethod
+    def _clean_amenities(cls, v: list[str]) -> list[str]:
+        # Drop unknown slugs / dupes and canonicalize order.
+        return normalize_amenities(v)
 
 
 class PropertyCreate(PropertyBase):
@@ -63,6 +71,12 @@ class PropertyUpdate(BaseModel):
     description: str | None = None
     notes: str | None = None
     yad2_url: str | None = Field(default=None, max_length=500)
+    amenities: list[str] | None = None
+
+    @field_validator("amenities")
+    @classmethod
+    def _clean_amenities(cls, v: list[str] | None) -> list[str] | None:
+        return None if v is None else normalize_amenities(v)
 
 
 class PropertyRead(PropertyBase):
@@ -180,6 +194,7 @@ class PublicProperty(BaseModel):
     city: str
     description: str | None = None
     yad2_url: str | None = None
+    amenities: list[str] = []
     photos: list[PublicPhoto] = []
     created_at: datetime
     updated_at: datetime
@@ -386,6 +401,7 @@ class Yad2ImportPreview(BaseModel):
     floor: int | None = None
     address: str | None = None
     neighborhood: str | None = None
+    amenities: list[str] = []
     image_urls: list[str] = []
     warnings: list[str] = []
 

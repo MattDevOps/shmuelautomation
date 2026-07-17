@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { findDuplicateProperties } from '../api/properties'
 import type { DuplicateMatch, PropertyCreate } from '../api/types'
 import {
+  AMENITIES,
   BROKER_FEE_STATUSES,
   PROPERTY_STATUSES,
   PROPERTY_TYPES,
@@ -45,6 +46,19 @@ export default function PropertyForm({
     value: PropertyCreate[K],
   ): void {
     setForm((f) => ({ ...f, [key]: value }))
+  }
+
+  function toggleAmenity(slug: string, on: boolean): void {
+    setForm((f) => {
+      const has = f.amenities.includes(slug)
+      if (on === has) return f
+      return {
+        ...f,
+        amenities: on
+          ? [...f.amenities, slug]
+          : f.amenities.filter((s) => s !== slug),
+      }
+    })
   }
 
   // Debounced duplicate check — fires once both neighborhood + address are
@@ -298,6 +312,22 @@ export default function PropertyForm({
             onChange={(e) => set('yad2_url', nullable(e.target.value))}
           />
         </label>
+
+        <fieldset className="field full amenities-fieldset">
+          <legend className="label-text">Amenities</legend>
+          <div className="amenities-grid">
+            {AMENITIES.map((a) => (
+              <label key={a.slug} className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={form.amenities.includes(a.slug)}
+                  onChange={(e) => toggleAmenity(a.slug, e.target.checked)}
+                />
+                <span>{a.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         <label className="field full">
           <span className="label-text">Description (public)</span>
