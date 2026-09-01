@@ -482,3 +482,43 @@ export interface LeadUpdate {
   summary?: string | null
   requirements?: LeadRequirements | null
 }
+
+export interface BlogPost {
+  id: string
+  slug: string
+  title: string
+  content_html: string
+  excerpt_html: string | null
+  image_url: string | null
+  published_at: string | null
+  published: boolean
+  wp_id: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface NeighborhoodContent {
+  id: string
+  slug: string
+  title: string
+  content_html: string
+  card_image_url: string | null
+  hero_image_url: string | null
+  sort_order: number
+  published: boolean
+  wp_id: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SitePage {
+  id: string
+  slug: string
+  title: string
+  content_html: string
+  data: Record<string, unknown> | null
+  published: boolean
+  wp_id: number | null
+  created_at: string
+  updated_at: string
+}
