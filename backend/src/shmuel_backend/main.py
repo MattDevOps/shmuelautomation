@@ -11,6 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from shmuel_backend.cloud_routes import oauth_router, photos_router
 from shmuel_backend.config import settings
 from shmuel_backend.contacts import router as contacts_router
+from shmuel_backend.content_routes import admin_router as content_admin_router
+from shmuel_backend.content_routes import public_router as content_public_router
 from shmuel_backend.db import get_session
 from shmuel_backend.enums import PostSlotStatus, PropertyStatus
 from shmuel_backend.groups import router as groups_router
@@ -97,6 +99,8 @@ app.include_router(whatsapp_threads_router)
 app.include_router(whatsapp_summaries_router)
 app.include_router(whatsapp_webhook_router)
 app.include_router(leads_router)
+app.include_router(content_admin_router)
+app.include_router(content_public_router)
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
