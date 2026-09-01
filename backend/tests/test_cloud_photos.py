@@ -187,7 +187,7 @@ def test_list_returns_photos_for_property(client: TestClient) -> None:
 
 
 @respx.mock
-def test_thumbnail_redirects_to_fresh_drive_url(client: TestClient) -> None:
+def test_thumbnail_proxies_image_bytes(client: TestClient) -> None:
     _connect_drive(client, respx.mock)
     pid = _create_property(client)
     respx.mock.get("https://www.googleapis.com/drive/v3/files").mock(
@@ -207,13 +207,23 @@ def test_thumbnail_redirects_to_fresh_drive_url(client: TestClient) -> None:
         json={"thumbnailLink": "https://lh3.googleusercontent.com/sig=abc"}
     )
 
+    # ...and we proxy those bytes back rather than redirecting. The admin's
+    # <img> tag cannot send X-API-Key, and Google's thumbnail host sends no
+    # CORS headers, so a 302 is unusable from the browser.
+    respx.mock.get("https://lh3.googleusercontent.com/sig=abc").respond(
+        content=b"\xff\xd8\xff-jpeg-bytes",
+        headers={"content-type": "image/jpeg"},
+    )
+
     r = client.get(
         f"/properties/{pid}/photos/{created['id']}/thumbnail",
         follow_redirects=False,
     )
-    assert r.status_code == 302
-    assert r.headers["location"] == "https://lh3.googleusercontent.com/sig=abc"
-    assert r.headers["cache-control"] == "public, max-age=300"
+    assert r.status_code == 200
+    assert r.content == b"\xff\xd8\xff-jpeg-bytes"
+    assert r.headers["content-type"] == "image/jpeg"
+    # Private, so no shared proxy caches a client's photos.
+    assert r.headers["cache-control"] == "private, max-age=300"
 
 
 @respx.mock
