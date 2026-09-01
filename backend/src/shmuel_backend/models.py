@@ -21,6 +21,8 @@ from shmuel_backend.enums import (
     BrokerFeeStatus,
     GroupAudience,
     GroupPlatform,
+    LeadSource,
+    LeadStatus,
     PostSlotStatus,
     PropertyStatus,
     PropertyType,
@@ -571,4 +573,53 @@ class SitePage(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         server_default=func.now(), onupdate=func.now()
+    )
+
+
+class LeadExtraction(Base):
+    """A lead the LLM pulled out of a conversation, awaiting Shmuel's review.
+
+    Deliberately NOT written straight into `contacts`. Extraction from a
+    WhatsApp thread is decent; extraction from a phone transcript that
+    code-switches between Hebrew and English is not, and a wrong contact is
+    harder to notice than a missing one. So each extraction lands here as
+    PENDING and only becomes a Contact when approved.
+
+    `requirements` is the structured shape of what the lead asked for —
+    rooms, neighbourhoods, furnished, parking, household size, timing,
+    budget, rent-vs-buy. Kept as JSON because the useful fields will keep
+    changing as we see real conversations, and a column per criterion would
+    mean a migration every time.
+    """
+
+    __tablename__ = "lead_extractions"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    source: Mapped[LeadSource] = mapped_column(
+        Enum(LeadSource, name="lead_source", native_enum=False, length=16),
+        index=True,
+    )
+    # chat_jid for WhatsApp, the provider's call id for a call.
+    source_ref: Mapped[str | None] = mapped_column(String(200), index=True)
+    phone: Mapped[str | None] = mapped_column(String(50), index=True)
+    display_name: Mapped[str | None] = mapped_column(String(200))
+    summary: Mapped[str | None] = mapped_column(Text)
+    requirements: Mapped[dict | None] = mapped_column(JSON)
+    status: Mapped[LeadStatus] = mapped_column(
+        Enum(LeadStatus, name="lead_status", native_enum=False, length=16),
+        default=LeadStatus.PENDING,
+        index=True,
+    )
+    # Set when approved, so the queue can link through to what it created.
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("contacts.id", ondelete="SET NULL")
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_lead_extractions_status_created", "status", "created_at"),
     )
