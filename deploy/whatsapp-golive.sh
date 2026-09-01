@@ -17,9 +17,16 @@ PROJECT="classic-jerusalem-realty"
 REGION="europe-west1"
 SERVICE="classic-jerusalem-realty-api"
 FLY_APP="shmuel-whatsapp"
-# The shared Fly org for this client. Deliberately NOT "personal" — infra for
-# Shmuel's business must not sit on a personal account (see CLAUDE.md).
-FLY_ORG="${FLY_ORG:-shmuel-realty}"
+# Fly org to deploy into, by API SLUG (not the display name, and not the
+# vanity path in the dashboard URL — for Shmuel's org those are "Classic
+# Jerusalem", "/dashboard/classic-jerusalem/" and "personal" respectively).
+# Find it with: flyctl orgs list --json
+#
+# "personal" is only correct here because FLY_ACCESS_TOKEN is scoped to
+# Shmuel's own Fly account, so his personal org is the business org and his
+# card is the one on it. Deploying to a personal org under anyone else's
+# login would put this client's infra on the wrong card.
+FLY_ORG="${FLY_ORG:-personal}"
 API_BASE="https://api.classicjerusalem.com"
 ADMIN_URL="https://admin.classicjerusalem.com"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -99,15 +106,26 @@ bold "3/6  Deploy the daemon to Fly ($FLY_APP)"
 
 cd "$REPO_ROOT/whatsapp-daemon"
 
-flyctl orgs list 2>/dev/null | awk '{print $2}' | grep -qx "$FLY_ORG" \
-  || die "Fly org '$FLY_ORG' not found on this account. Set FLY_ORG, or create the org first."
-ok "target org $FLY_ORG"
+# Match on the JSON keys: the table output can't be parsed positionally
+# because display names contain spaces ("Classic Jerusalem" -> $2 = "Jerusalem").
+FLY_ORG_NAME="$(flyctl orgs list --json 2>/dev/null \
+  | python3 -c "import json,sys; print((json.load(sys.stdin) or {}).get('$FLY_ORG',''))" 2>/dev/null || true)"
+[[ -n "$FLY_ORG_NAME" ]] \
+  || die "Fly org slug '$FLY_ORG' not visible to this token. Run: flyctl orgs list --json"
+ok "target org $FLY_ORG (\"$FLY_ORG_NAME\")"
 
 # --org is required when creating non-interactively, and picking it explicitly
 # is what keeps this off a personal account.
-flyctl apps list 2>/dev/null | grep -q "^$FLY_APP" \
-  || { info "creating Fly app $FLY_APP in org $FLY_ORG"; \
-       flyctl apps create "$FLY_APP" --org "$FLY_ORG" --machines; }
+# Match on JSON, not the table: the table is box-drawn and every row is
+# indented, so an anchored "^$FLY_APP" grep silently never matches and we
+# try to create an app that already exists.
+if flyctl apps list --json 2>/dev/null \
+   | python3 -c "import json,sys; sys.exit(0 if any(a.get('Name')=='$FLY_APP' for a in (json.load(sys.stdin) or [])) else 1)" 2>/dev/null; then
+  ok "app $FLY_APP already exists — deploying over it"
+else
+  info "creating Fly app $FLY_APP in org $FLY_ORG"
+  flyctl apps create "$FLY_APP" --org "$FLY_ORG" --machines
+fi
 
 flyctl secrets set --app "$FLY_APP" --stage \
   DAEMON_AUTH_TOKEN="$DAEMON_TOKEN" \
