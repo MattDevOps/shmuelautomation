@@ -5,17 +5,17 @@ Revises: e1a7c3f9b204
 Create Date: 2026-09-01 08:10:05.552541
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'aeb65e542634'
-down_revision: Union[str, Sequence[str], None] = 'e1a7c3f9b204'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = 'e1a7c3f9b204'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -33,8 +33,18 @@ def upgrade() -> None:
     sa.Column('published_at', sa.DateTime(), nullable=True),
     sa.Column('published', sa.Boolean(), nullable=False),
     sa.Column('wp_id', sa.Integer(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
+    sa.Column(
+        'created_at',
+        sa.DateTime(),
+        server_default=sa.text('(CURRENT_TIMESTAMP)'),
+        nullable=False,
+    ),
+    sa.Column(
+        'updated_at',
+        sa.DateTime(),
+        server_default=sa.text('(CURRENT_TIMESTAMP)'),
+        nullable=False,
+    ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_blog_posts_published'), 'blog_posts', ['published'], unique=False)
@@ -50,11 +60,26 @@ def upgrade() -> None:
     sa.Column('sort_order', sa.Integer(), nullable=False),
     sa.Column('published', sa.Boolean(), nullable=False),
     sa.Column('wp_id', sa.Integer(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
+    sa.Column(
+        'created_at',
+        sa.DateTime(),
+        server_default=sa.text('(CURRENT_TIMESTAMP)'),
+        nullable=False,
+    ),
+    sa.Column(
+        'updated_at',
+        sa.DateTime(),
+        server_default=sa.text('(CURRENT_TIMESTAMP)'),
+        nullable=False,
+    ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_neighborhoods_published'), 'neighborhoods', ['published'], unique=False)
+    op.create_index(
+        op.f('ix_neighborhoods_published'),
+        'neighborhoods',
+        ['published'],
+        unique=False,
+    )
     op.create_index(op.f('ix_neighborhoods_slug'), 'neighborhoods', ['slug'], unique=True)
     op.create_index(op.f('ix_neighborhoods_wp_id'), 'neighborhoods', ['wp_id'], unique=True)
     op.create_table('site_pages',
@@ -65,8 +90,18 @@ def upgrade() -> None:
     sa.Column('data', sa.JSON(), nullable=True),
     sa.Column('published', sa.Boolean(), nullable=False),
     sa.Column('wp_id', sa.Integer(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
+    sa.Column(
+        'created_at',
+        sa.DateTime(),
+        server_default=sa.text('(CURRENT_TIMESTAMP)'),
+        nullable=False,
+    ),
+    sa.Column(
+        'updated_at',
+        sa.DateTime(),
+        server_default=sa.text('(CURRENT_TIMESTAMP)'),
+        nullable=False,
+    ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_site_pages_published'), 'site_pages', ['published'], unique=False)

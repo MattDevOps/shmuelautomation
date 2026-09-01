@@ -5,17 +5,17 @@ Revises: aeb65e542634
 Create Date: 2026-09-01 08:38:31.491634
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '74aab802da8b'
-down_revision: Union[str, Sequence[str], None] = 'aeb65e542634'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = 'aeb65e542634'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -24,25 +24,70 @@ def upgrade() -> None:
     # oauth_states and whatsapp_threads (pre-existing model/DB drift); stripped.
     op.create_table('lead_extractions',
     sa.Column('id', sa.Uuid(), nullable=False),
-    sa.Column('source', sa.Enum('WHATSAPP', 'CALL', name='lead_source', native_enum=False, length=16), nullable=False),
+    sa.Column(
+        'source',
+        sa.Enum('WHATSAPP', 'CALL', name='lead_source', native_enum=False, length=16),
+        nullable=False,
+    ),
     sa.Column('source_ref', sa.String(length=200), nullable=True),
     sa.Column('phone', sa.String(length=50), nullable=True),
     sa.Column('display_name', sa.String(length=200), nullable=True),
     sa.Column('summary', sa.Text(), nullable=True),
     sa.Column('requirements', sa.JSON(), nullable=True),
-    sa.Column('status', sa.Enum('PENDING', 'APPROVED', 'REJECTED', name='lead_status', native_enum=False, length=16), nullable=False),
+    sa.Column(
+        'status',
+        sa.Enum(
+            'PENDING',
+            'APPROVED',
+            'REJECTED',
+            name='lead_status',
+            native_enum=False,
+            length=16,
+        ),
+        nullable=False,
+    ),
     sa.Column('contact_id', sa.Uuid(), nullable=True),
     sa.Column('reviewed_at', sa.DateTime(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
-    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
+    sa.Column(
+        'created_at',
+        sa.DateTime(),
+        server_default=sa.text('(CURRENT_TIMESTAMP)'),
+        nullable=False,
+    ),
+    sa.Column(
+        'updated_at',
+        sa.DateTime(),
+        server_default=sa.text('(CURRENT_TIMESTAMP)'),
+        nullable=False,
+    ),
     sa.ForeignKeyConstraint(['contact_id'], ['contacts.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_lead_extractions_phone'), 'lead_extractions', ['phone'], unique=False)
-    op.create_index(op.f('ix_lead_extractions_source'), 'lead_extractions', ['source'], unique=False)
-    op.create_index(op.f('ix_lead_extractions_source_ref'), 'lead_extractions', ['source_ref'], unique=False)
-    op.create_index(op.f('ix_lead_extractions_status'), 'lead_extractions', ['status'], unique=False)
-    op.create_index('ix_lead_extractions_status_created', 'lead_extractions', ['status', 'created_at'], unique=False)
+    op.create_index(
+        op.f('ix_lead_extractions_source'),
+        'lead_extractions',
+        ['source'],
+        unique=False,
+    )
+    op.create_index(
+        op.f('ix_lead_extractions_source_ref'),
+        'lead_extractions',
+        ['source_ref'],
+        unique=False,
+    )
+    op.create_index(
+        op.f('ix_lead_extractions_status'),
+        'lead_extractions',
+        ['status'],
+        unique=False,
+    )
+    op.create_index(
+        'ix_lead_extractions_status_created',
+        'lead_extractions',
+        ['status', 'created_at'],
+        unique=False,
+    )
     # ### end Alembic commands ###
 
 
