@@ -84,26 +84,29 @@ function RowThumb({
   propertyId: string
   photoId: string | null
 }) {
-  const [src, setSrc] = useState<string | null>(null)
-  const [errored, setErrored] = useState(false)
+  // Both pieces of state carry the photo id they describe, so a result that
+  // lands after the row has been re-pointed at a different photo is ignored
+  // without needing to reset state synchronously inside the effect.
+  const [loaded, setLoaded] = useState<{ id: string; url: string } | null>(null)
+  const [failedId, setFailedId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!photoId) return
     let cancelled = false
-    setErrored(false)
     loadThumb(propertyId, photoId)
       .then((url) => {
-        if (!cancelled) setSrc(url)
+        if (!cancelled) setLoaded({ id: photoId, url })
       })
       .catch(() => {
-        if (!cancelled) setErrored(true)
+        if (!cancelled) setFailedId(photoId)
       })
     return () => {
       cancelled = true
     }
   }, [propertyId, photoId])
 
-  if (!photoId || errored || !src) {
+  const src = loaded !== null && loaded.id === photoId ? loaded.url : null
+  if (!photoId || failedId === photoId || src === null) {
     return <span className="photo-thumb photo-thumb-placeholder" />
   }
   return <img src={src} alt="" className="photo-thumb" />
