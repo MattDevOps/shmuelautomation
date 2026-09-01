@@ -459,9 +459,16 @@ async def import_photos_from_urls(
 async def photo_thumbnail(
     property_id: uuid.UUID, photo_id: uuid.UUID, session: SessionDep
 ) -> Response:
-    """Resolve a fresh signed thumbnail URL for a photo, then 302 the browser
-    there. Drive's thumbnailLink expires on the order of hours, so we fetch a
-    fresh one on every request rather than caching it."""
+    """Return the photo's thumbnail image bytes.
+
+    We resolve a fresh signed Drive URL per request (thumbnailLink expires on
+    the order of hours) and then *proxy the bytes* rather than 302-ing to it.
+    Redirecting looks tidier but cannot work from the admin: a browser <img>
+    tag can't send the X-API-Key header this API requires, and Google's
+    thumbnail host returns no Access-Control-Allow-Origin, so fetching the
+    redirect target from JS is blocked by CORS too. Proxying keeps the request
+    on our own origin, where both auth and CORS already work.
+    """
     photo = await session.get(CloudPhoto, photo_id)
     if photo is None or photo.property_id != property_id:
         raise HTTPException(status_code=404, detail="photo not found")
@@ -484,9 +491,22 @@ async def photo_thumbnail(
         # 404 lets the frontend's onError fall back to the filename tile.
         raise HTTPException(status_code=404, detail="thumbnail not ready")
 
+    try:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            upstream = await client.get(url)
+        upstream.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="could not fetch thumbnail from Drive",
+        ) from exc
+
     return Response(
-        status_code=302,
-        headers={"location": url, "cache-control": "public, max-age=300"},
+        content=upstream.content,
+        media_type=upstream.headers.get("content-type", "image/jpeg"),
+        # Private: these are a client's photos behind an API key, so they must
+        # not be cached by any shared proxy on the way back.
+        headers={"cache-control": "private, max-age=300"},
     )
 
 

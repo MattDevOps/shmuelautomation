@@ -33,3 +33,13 @@ export async function request<T>(
   if (!r.ok) throw new ApiError(`${r.status} ${path}`, r.status, body)
   return body as T
 }
+
+/** Fetch a binary response (e.g. an image) with the same auth as `request`.
+ * Needed because a browser <img src> can't send the X-API-Key header. */
+export async function requestBlob(path: string): Promise<Blob> {
+  const headers = new Headers()
+  if (API_KEY) headers.set('x-api-key', API_KEY)
+  const r = await fetch(`${API_URL}${path}`, { headers })
+  if (!r.ok) throw new ApiError(`${r.status} ${path}`, r.status)
+  return r.blob()
+}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { API_URL } from '../api/client'
+import { requestBlob } from '../api/client'
 import {
   EXPORT_URL,
   bulkDeleteProperties,
@@ -54,11 +54,29 @@ function hasActiveFilters(f: PropertyListFilters): boolean {
   return Boolean(f.type || f.status || f.neighborhood || f.q || f.min_price || f.max_price)
 }
 
-// Renders the row thumbnail off the backend redirect endpoint, which resolves
-// a FRESH signed Drive thumbnailLink on every request. The stored thumbnail_url
-// expires after hours and can't be hotlinked cross-origin, so embedding it
-// directly left the cell empty. Falls back to a placeholder tile on error or
-// when Drive hasn't rendered the thumbnail yet.
+// Row thumbnails are fetched, not linked. The backend requires an X-API-Key
+// header that a plain <img src> cannot send, so pointing the tag straight at
+// the endpoint 401'd every time and left every row showing the grey
+// placeholder. Instead we fetch the bytes with the same auth as every other
+// call and hand the tag an object URL.
+//
+// Cached per photo id for the life of the page: the summaries effect re-runs
+// whenever `rows` changes, and without this every filter change would
+// re-download all ~110 thumbnails.
+const thumbCache = new Map<string, Promise<string>>()
+
+function loadThumb(propertyId: string, photoId: string): Promise<string> {
+  const cached = thumbCache.get(photoId)
+  if (cached) return cached
+  const pending = requestBlob(
+    `/properties/${propertyId}/photos/${photoId}/thumbnail`,
+  ).then((blob) => URL.createObjectURL(blob))
+  // Don't cache failures — a thumbnail Drive hasn't rendered yet may work later.
+  pending.catch(() => thumbCache.delete(photoId))
+  thumbCache.set(photoId, pending)
+  return pending
+}
+
 function RowThumb({
   propertyId,
   photoId,
@@ -66,20 +84,29 @@ function RowThumb({
   propertyId: string
   photoId: string | null
 }) {
+  const [src, setSrc] = useState<string | null>(null)
   const [errored, setErrored] = useState(false)
-  if (!photoId || errored) {
+
+  useEffect(() => {
+    if (!photoId) return
+    let cancelled = false
+    setErrored(false)
+    loadThumb(propertyId, photoId)
+      .then((url) => {
+        if (!cancelled) setSrc(url)
+      })
+      .catch(() => {
+        if (!cancelled) setErrored(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [propertyId, photoId])
+
+  if (!photoId || errored || !src) {
     return <span className="photo-thumb photo-thumb-placeholder" />
   }
-  return (
-    <img
-      src={`${API_URL}/properties/${propertyId}/photos/${photoId}/thumbnail`}
-      alt=""
-      className="photo-thumb"
-      referrerPolicy="no-referrer"
-      loading="lazy"
-      onError={() => setErrored(true)}
-    />
-  )
+  return <img src={src} alt="" className="photo-thumb" />
 }
 
 export default function PropertiesPage() {
