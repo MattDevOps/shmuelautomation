@@ -21,6 +21,8 @@ from shmuel_backend.enums import (
     BrokerFeeStatus,
     GroupAudience,
     GroupPlatform,
+    LeadSource,
+    LeadStatus,
     PostSlotStatus,
     PropertyStatus,
     PropertyType,
@@ -492,4 +494,132 @@ class ScheduleConfig(Base):
     saturday_resume_at: Mapped[str] = mapped_column(String(5), default="21:00")
     updated_at: Mapped[datetime] = mapped_column(
         server_default=func.now(), onupdate=func.now()
+    )
+
+
+# --------------------------------------------------------------------------
+# Site content — the CMS side of retiring WordPress.
+#
+# These three tables mirror what WordPress holds today (blog posts, the
+# neighbourhood guides, and the static marketing pages). They are populated by
+# scripts/import_wp_content.py and edited from the admin, but nothing public
+# reads them until the per-type toggles are switched on, so WordPress stays
+# authoritative in the meantime.
+#
+# `wp_id` is the WordPress post id. It is what makes re-importing idempotent:
+# a re-run updates the row it created last time instead of duplicating it, so
+# the mirror can be refreshed as often as we like while WP keeps changing.
+# --------------------------------------------------------------------------
+
+
+class BlogPost(Base):
+    __tablename__ = "blog_posts"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    slug: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(500))
+    content_html: Mapped[str] = mapped_column(Text, default="")
+    excerpt_html: Mapped[str | None] = mapped_column(Text)
+    image_url: Mapped[str | None] = mapped_column(String(1000))
+    published_at: Mapped[datetime | None] = mapped_column()
+    # Drafts are editable in the admin but never served publicly.
+    published: Mapped[bool] = mapped_column(default=True, index=True)
+    wp_id: Mapped[int | None] = mapped_column(unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
+
+
+class Neighborhood(Base):
+    __tablename__ = "neighborhoods"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    slug: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(500))
+    content_html: Mapped[str] = mapped_column(Text, default="")
+    # WordPress only ever set image_card, so that is all the import fills.
+    # hero_image_url has no WP source and stays null until somebody sets one
+    # from the admin — the frontend should fall back to the card image.
+    card_image_url: Mapped[str | None] = mapped_column(String(1000))
+    hero_image_url: Mapped[str | None] = mapped_column(String(1000))
+    sort_order: Mapped[int] = mapped_column(default=0)
+    published: Mapped[bool] = mapped_column(default=True, index=True)
+    wp_id: Mapped[int | None] = mapped_column(unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
+
+
+class SitePage(Base):
+    """A static marketing page (sell-your-apartment, contact info, home, ...).
+
+    `data` holds the structured extras those pages carry in WordPress ACF —
+    contact_data (phone/email/address), image sliders and so on — rather than
+    inventing a column per page type. Page bodies stay HTML so the existing
+    frontend components render them unchanged.
+    """
+
+    __tablename__ = "site_pages"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    slug: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(500))
+    content_html: Mapped[str] = mapped_column(Text, default="")
+    data: Mapped[dict | None] = mapped_column(JSON)
+    published: Mapped[bool] = mapped_column(default=True, index=True)
+    wp_id: Mapped[int | None] = mapped_column(unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
+
+
+class LeadExtraction(Base):
+    """A lead the LLM pulled out of a conversation, awaiting Shmuel's review.
+
+    Deliberately NOT written straight into `contacts`. Extraction from a
+    WhatsApp thread is decent; extraction from a phone transcript that
+    code-switches between Hebrew and English is not, and a wrong contact is
+    harder to notice than a missing one. So each extraction lands here as
+    PENDING and only becomes a Contact when approved.
+
+    `requirements` is the structured shape of what the lead asked for —
+    rooms, neighbourhoods, furnished, parking, household size, timing,
+    budget, rent-vs-buy. Kept as JSON because the useful fields will keep
+    changing as we see real conversations, and a column per criterion would
+    mean a migration every time.
+    """
+
+    __tablename__ = "lead_extractions"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    source: Mapped[LeadSource] = mapped_column(
+        Enum(LeadSource, name="lead_source", native_enum=False, length=16),
+        index=True,
+    )
+    # chat_jid for WhatsApp, the provider's call id for a call.
+    source_ref: Mapped[str | None] = mapped_column(String(200), index=True)
+    phone: Mapped[str | None] = mapped_column(String(50), index=True)
+    display_name: Mapped[str | None] = mapped_column(String(200))
+    summary: Mapped[str | None] = mapped_column(Text)
+    requirements: Mapped[dict | None] = mapped_column(JSON)
+    status: Mapped[LeadStatus] = mapped_column(
+        Enum(LeadStatus, name="lead_status", native_enum=False, length=16),
+        default=LeadStatus.PENDING,
+        index=True,
+    )
+    # Set when approved, so the queue can link through to what it created.
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("contacts.id", ondelete="SET NULL")
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_lead_extractions_status_created", "status", "created_at"),
     )

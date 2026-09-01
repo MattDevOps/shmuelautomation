@@ -74,3 +74,27 @@ class ChatbotIntent(StrEnum):
     QUESTION = "question"
     GREETING = "greeting"
     OTHER = "other"
+
+
+class LeadSource(StrEnum):
+    """Where an extracted lead came from.
+
+    WHATSAPP — a DM thread the chatbot handled.
+    CALL     — a recorded phone call, transcribed then extracted.
+    """
+
+    WHATSAPP = "whatsapp"
+    CALL = "call"
+
+
+class LeadStatus(StrEnum):
+    """Review state of an extracted lead.
+
+    Extraction is never trusted straight into the address book: transcripts
+    of Hebrew/English code-switching on a phone line make mistakes, and a
+    polluted CRM is worse than a slow one. Shmuel approves or rejects.
+    """
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"

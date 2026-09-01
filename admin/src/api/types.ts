@@ -438,3 +438,87 @@ export const EMPTY_PROPERTY: PropertyCreate = {
   yad2_url: null,
   amenities: [],
 }
+
+export type LeadSource = 'whatsapp' | 'call'
+export type LeadStatus = 'pending' | 'approved' | 'rejected'
+
+/** What the lead asked for. Every field optional — the extractor is told to
+ *  leave unknowns out rather than guess, so a thin lead looks thin. */
+export interface LeadRequirements {
+  deal_type?: 'rent' | 'buy'
+  rooms?: string
+  neighborhoods?: string[]
+  furnished?: 'furnished' | 'unfurnished'
+  parking?: boolean
+  household?: string
+  timing?: string
+  budget?: string
+  other?: string[]
+}
+
+export interface Lead {
+  id: string
+  source: LeadSource
+  source_ref: string | null
+  phone: string | null
+  display_name: string | null
+  summary: string | null
+  requirements: LeadRequirements | null
+  status: LeadStatus
+  contact_id: string | null
+  reviewed_at: string | null
+  created_at: string
+}
+
+export interface LeadList {
+  items: Lead[]
+  total: number
+  pending: number
+}
+
+export interface LeadUpdate {
+  display_name?: string | null
+  phone?: string | null
+  summary?: string | null
+  requirements?: LeadRequirements | null
+}
+
+export interface BlogPost {
+  id: string
+  slug: string
+  title: string
+  content_html: string
+  excerpt_html: string | null
+  image_url: string | null
+  published_at: string | null
+  published: boolean
+  wp_id: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface NeighborhoodContent {
+  id: string
+  slug: string
+  title: string
+  content_html: string
+  card_image_url: string | null
+  hero_image_url: string | null
+  sort_order: number
+  published: boolean
+  wp_id: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface SitePage {
+  id: string
+  slug: string
+  title: string
+  content_html: string
+  data: Record<string, unknown> | null
+  published: boolean
+  wp_id: number | null
+  created_at: string
+  updated_at: string
+}
