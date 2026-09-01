@@ -9,6 +9,7 @@ import PropertiesPage from './pages/PropertiesPage'
 import PropertyEditPage from './pages/PropertyEditPage'
 import QueuePage from './pages/QueuePage'
 import SettingsPage from './pages/SettingsPage'
+import LeadsPage from './pages/LeadsPage'
 import SummariesPage from './pages/SummariesPage'
 import SystemPage from './pages/SystemPage'
 import WhatsappThreadsPage from './pages/WhatsappThreadsPage'
@@ -33,6 +34,7 @@ export default function App() {
           <NavLink to="/contacts">Contacts</NavLink>
           <NavLink to="/newsletter">Newsletter</NavLink>
           <NavLink to="/chatbot">Chatbot</NavLink>
+          <NavLink to="/leads">Leads</NavLink>
           <NavLink to="/summaries">Summaries</NavLink>
           <NavLink to="/import">Import from Yad2</NavLink>
           <NavLink to="/settings">Settings</NavLink>
@@ -45,6 +47,7 @@ export default function App() {
           <Route path="/new" element={<PropertyEditPage />} />
           <Route path="/import" element={<ImportYad2Page />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/leads" element={<LeadsPage />} />
           <Route path="/queue" element={<QueuePage />} />
           <Route path="/groups" element={<GroupsPage />} />
           <Route path="/contacts" element={<ContactsPage />} />

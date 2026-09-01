@@ -438,3 +438,47 @@ export const EMPTY_PROPERTY: PropertyCreate = {
   yad2_url: null,
   amenities: [],
 }
+
+export type LeadSource = 'whatsapp' | 'call'
+export type LeadStatus = 'pending' | 'approved' | 'rejected'
+
+/** What the lead asked for. Every field optional — the extractor is told to
+ *  leave unknowns out rather than guess, so a thin lead looks thin. */
+export interface LeadRequirements {
+  deal_type?: 'rent' | 'buy'
+  rooms?: string
+  neighborhoods?: string[]
+  furnished?: 'furnished' | 'unfurnished'
+  parking?: boolean
+  household?: string
+  timing?: string
+  budget?: string
+  other?: string[]
+}
+
+export interface Lead {
+  id: string
+  source: LeadSource
+  source_ref: string | null
+  phone: string | null
+  display_name: string | null
+  summary: string | null
+  requirements: LeadRequirements | null
+  status: LeadStatus
+  contact_id: string | null
+  reviewed_at: string | null
+  created_at: string
+}
+
+export interface LeadList {
+  items: Lead[]
+  total: number
+  pending: number
+}
+
+export interface LeadUpdate {
+  display_name?: string | null
+  phone?: string | null
+  summary?: string | null
+  requirements?: LeadRequirements | null
+}
