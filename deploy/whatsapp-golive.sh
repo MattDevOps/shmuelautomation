@@ -17,6 +17,9 @@ PROJECT="classic-jerusalem-realty"
 REGION="europe-west1"
 SERVICE="classic-jerusalem-realty-api"
 FLY_APP="shmuel-whatsapp"
+# The shared Fly org for this client. Deliberately NOT "personal" — infra for
+# Shmuel's business must not sit on a personal account (see CLAUDE.md).
+FLY_ORG="${FLY_ORG:-shmuel-realty}"
 API_BASE="https://api.classicjerusalem.com"
 ADMIN_URL="https://admin.classicjerusalem.com"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -96,8 +99,15 @@ bold "3/6  Deploy the daemon to Fly ($FLY_APP)"
 
 cd "$REPO_ROOT/whatsapp-daemon"
 
+flyctl orgs list 2>/dev/null | awk '{print $2}' | grep -qx "$FLY_ORG" \
+  || die "Fly org '$FLY_ORG' not found on this account. Set FLY_ORG, or create the org first."
+ok "target org $FLY_ORG"
+
+# --org is required when creating non-interactively, and picking it explicitly
+# is what keeps this off a personal account.
 flyctl apps list 2>/dev/null | grep -q "^$FLY_APP" \
-  || { info "creating Fly app $FLY_APP"; flyctl apps create "$FLY_APP" --machines; }
+  || { info "creating Fly app $FLY_APP in org $FLY_ORG"; \
+       flyctl apps create "$FLY_APP" --org "$FLY_ORG" --machines; }
 
 flyctl secrets set --app "$FLY_APP" --stage \
   DAEMON_AUTH_TOKEN="$DAEMON_TOKEN" \

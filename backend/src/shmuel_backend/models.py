@@ -493,3 +493,82 @@ class ScheduleConfig(Base):
     updated_at: Mapped[datetime] = mapped_column(
         server_default=func.now(), onupdate=func.now()
     )
+
+
+# --------------------------------------------------------------------------
+# Site content — the CMS side of retiring WordPress.
+#
+# These three tables mirror what WordPress holds today (blog posts, the
+# neighbourhood guides, and the static marketing pages). They are populated by
+# scripts/import_wp_content.py and edited from the admin, but nothing public
+# reads them until the per-type toggles are switched on, so WordPress stays
+# authoritative in the meantime.
+#
+# `wp_id` is the WordPress post id. It is what makes re-importing idempotent:
+# a re-run updates the row it created last time instead of duplicating it, so
+# the mirror can be refreshed as often as we like while WP keeps changing.
+# --------------------------------------------------------------------------
+
+
+class BlogPost(Base):
+    __tablename__ = "blog_posts"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    slug: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(500))
+    content_html: Mapped[str] = mapped_column(Text, default="")
+    excerpt_html: Mapped[str | None] = mapped_column(Text)
+    image_url: Mapped[str | None] = mapped_column(String(1000))
+    published_at: Mapped[datetime | None] = mapped_column()
+    # Drafts are editable in the admin but never served publicly.
+    published: Mapped[bool] = mapped_column(default=True, index=True)
+    wp_id: Mapped[int | None] = mapped_column(unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
+
+
+class Neighborhood(Base):
+    __tablename__ = "neighborhoods"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    slug: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(500))
+    content_html: Mapped[str] = mapped_column(Text, default="")
+    # WordPress only ever set image_card, so that is all the import fills.
+    # hero_image_url has no WP source and stays null until somebody sets one
+    # from the admin — the frontend should fall back to the card image.
+    card_image_url: Mapped[str | None] = mapped_column(String(1000))
+    hero_image_url: Mapped[str | None] = mapped_column(String(1000))
+    sort_order: Mapped[int] = mapped_column(default=0)
+    published: Mapped[bool] = mapped_column(default=True, index=True)
+    wp_id: Mapped[int | None] = mapped_column(unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
+
+
+class SitePage(Base):
+    """A static marketing page (sell-your-apartment, contact info, home, ...).
+
+    `data` holds the structured extras those pages carry in WordPress ACF —
+    contact_data (phone/email/address), image sliders and so on — rather than
+    inventing a column per page type. Page bodies stay HTML so the existing
+    frontend components render them unchanged.
+    """
+
+    __tablename__ = "site_pages"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    slug: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(500))
+    content_html: Mapped[str] = mapped_column(Text, default="")
+    data: Mapped[dict | None] = mapped_column(JSON)
+    published: Mapped[bool] = mapped_column(default=True, index=True)
+    wp_id: Mapped[int | None] = mapped_column(unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
